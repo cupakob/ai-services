@@ -1,0 +1,48 @@
+services:
+  n8n:
+    image: n8nio/n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=admin
+      - N8N_SECURE_COOKIE=false
+      - NODE_FUNCTION_ALLOW_EXTERNAL=jsdom
+    networks:
+      - pw-network
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.58.2-jammy
+    container_name: playwright
+    init: true                    # --init
+    ipc: host                     # --ipc=host
+    ports:
+      - "3000:3000"              # -p 3000:3000
+      - "3001:3001"              # -p 3000:3000
+    volumes:
+      - ./scripts:/home/pwuser/scripts        # -v /path/to/your/scripts:/scripts
+    command: >
+     sh -c "
+      cd /home/pwuser/scripts &&
+      if [ ! -d 'node_modules' ]; then
+      npm init -y &&
+      npm install express playwright &&
+      npx playwright install --with-deps;
+      fi &&
+      npx playwright run-server --port 3000 --host 0.0.0.0 &&
+      node scripts/server.js
+      "
+    networks:
+      - pw-network
+    restart: always
+
+volumes:
+  n8n_data:
+
+networks:
+  pw-network:         
+
