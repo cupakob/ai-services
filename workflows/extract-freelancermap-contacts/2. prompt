@@ -1,0 +1,52 @@
+Take all new contacts from here:
+{{ $json.text }}
+
+Add the new contacts to already existing list :
+{{ $json.existingContent }}.
+
+Add new contacts only if:
+1. the contact is not already in the existing list
+2. the contact has at least one of the following: mobile phone or landline phone
+
+Update a contact if:
+1. the contact is already in the existing list
+2. the contact has at least one of the following: mobile phone or landline phone
+3. the mobile phone or landline phone or email is different from the existing contact. In this case, update the contact with the new data.
+
+The final list should be longer than the Print only the contact list without any additional information before or after. Do not generate any code (no python, no any other).
+
+Use following format for the contacts:
+Name <TABs> mobile phone <TABs> landline phone number <TABs> email.
+
+The data should organized in four columns: name, mobile phone, landline number, email. If needed add more indent. I want all mobile phones aligned at the same column. All landline numbers should also aligned under each other. And the emails too.
+
+Example how I dont want it:
+Maria Wiesner	+4917655741188	+498955197759	m.wiesner@sthree.com
+Shanon Maslin	+491732623210	+4921197553354	s.maslin@sthree.com
+Paulo Ferreira	        	+492216508429106	paulo@optimyzeus.com
+Salome Megrelishvili	        	+498920194184	smegrelishvili@redglobal.com
+
+Example how i want to have it:
+Maria Wiesner	        +4917655741188	+498955197759	    m.wiesner@sthree.com
+Shanon Maslin	        +491732623210	+4921197553354	    s.maslin@sthree.com
+Paulo Ferreira	        	            +492216508429106	paulo@optimyzeus.com
+Salome Megrelishvili	        	    +498920194184       smegrelishvili@redglobal.com
+
+The longest name should be used as base for staring indentation, in current example the longest name is probably "Nicole Biyik (geb. Wisniewski)". Expected alignment is this:
+Anagha Venkatesh                +4917686344869                          careers@amm-group.com
+Sibel Tunc                                      +4940236878028          stunc@nelta.de
+Marcel Wlömer                                   +4922165085537          marcel@connectly.de
+Nicole Biyik (geb. Wisniewski)                  +496924007517           n.wisniewski@westhouse-group.com
+Adrian Sammer                   +4915114975985                          a.sammer@zabelglobal.com
+
+Mobile phone numbers should be aligned at the same column, landline phone numbers should be aligned at the same column and emails should be aligned at the same column. If necessary, add more indent to align the data. If a contact does not have mobile phone, landline phone or email, do not add it to the list.
+
+Team or company email, which are not aligned to a concrete person, should not be added, e.g. following contacts should not be added:
+Projektbewerbungen Aleri Digital Experts                                projektbewerbungen@aleri.de
+Recruiting Team wynwood tech                    +4930233295591          freelancermap@wynwood-tech.com
+joyIT Recruiting GmbH                           +4933773279075          freelancermap@joyit-berlin.de
+Service Team                                    +4991196643066          support@freelancermap.de
+
+Atanas Alexandrov should not be added as a contact.
+
+Put the new contacts at the end of the file
