@@ -33,8 +33,8 @@ services:
       npm install express playwright &&
       npx playwright install --with-deps;
       fi &&
-      npx playwright run-server --port 3000 --host 0.0.0.0 &&
-      node scripts/server.js
+      node scripts/server.js &
+      npx playwright run-server --port 3000 --host 0.0.0.0
       "
     networks:
       - pw-network
