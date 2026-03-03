@@ -33,7 +33,10 @@ services:
       npm install express playwright &&
       npx playwright install --with-deps;
       fi &&
-      node scripts/server.js &
+      echo '🔧 Starting Express Server...' &&
+      node server.js > /tmp/server.log 2>&1 &
+      sleep 2 &&
+      echo '✅ Express Server started. Check logs: cat /tmp/server.log' &&
       npx playwright run-server --port 3000 --host 0.0.0.0
       "
     networks:
