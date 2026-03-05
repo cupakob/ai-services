@@ -1,6 +1,7 @@
 services:
   n8n:
     image: n8nio/n8n
+    container_name: n8n
     restart: always
     ports:
       - "5678:5678"
@@ -18,11 +19,11 @@ services:
   playwright:
     image: mcr.microsoft.com/playwright:v1.58.2-jammy
     container_name: playwright
-    init: true                    # --init
-    ipc: host                     # --ipc=host
+    init: true
+    ipc: host
     ports:
-      - "3000:3000"              # -p 3000:3000
-      - "3001:3001"              # -p 3000:3000
+      - "3000:3000"
+      - "3001:3001"
     volumes:
       - ./scripts:/home/pwuser/scripts        # -v /path/to/your/scripts:/scripts
     command: >
