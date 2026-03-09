@@ -42,13 +42,14 @@ services:
       -d
 
   watchtower:
-    image: containrrr/watchtower
+    image: containrrr/watchtower:latest
+    container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - WATCHTOWER_SCHEDULE=0 0 4 * * *  # Tägliche Updates um 4 Uhr
-      - WATCHTOWER_CLEANUP=true            # Automatische Bereinigung alter Images
-      - WATCHTOWER_POLL_INTERVAL=21600    # Optional: 6-stündliche Überprüfung (21600 Sekunden)
+      - DOCKER_API_VERSION=1.53
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *
+      - WATCHTOWER_CLEANUP=true
 
 volumes:
   ollama_data:
