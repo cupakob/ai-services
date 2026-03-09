@@ -1,0 +1,48 @@
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    runtime: nvidia
+    devices:
+      - "/dev/nvidia0:/dev/nvidia0"
+      - "/dev/nvidiactl:/dev/nvidiactl"
+      - "/dev/nvidia-uvm:/dev/nvidia-uvm"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_data:/root/.ollama
+
+  webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: ollama_webui
+    restart: always
+    ports:
+      - "3000:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      - ./ollama_webui_data:/app/backend/data
+    depends_on:
+      - ollama
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./searxng_config/settings.yml:/etc/searxng/settings.yml
+    environment:
+      - SEARXNG_HOSTNAME=localhost
+    command:
+      -d
+
+volumes:
+  ollama_data:
+  ollama_webui_data:
+  searxng_config:
+  searxng_data:
