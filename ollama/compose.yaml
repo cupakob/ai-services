@@ -20,7 +20,7 @@ services:
     container_name: ollama_webui
     restart: always
     ports:
-      - "3000:8080"
+      - "3003:8080"
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
     volumes:
