@@ -2,6 +2,14 @@ services:
   ollama:
     image: ollama/ollama
     container_name: ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: -1
+      OLLAMA_NUM_THREADS: 8
+      OLLAMA_MAX_SEQ_LEN: 1024
+      OLLAMA_VERBOSE: "0"
+      OLLAMA_CPU_ONLY: "1"
+      OLLAMA_CACHE_IMAGE: false
+      OLLAMA_DEVICE_MAPPER: cpu
     ports:
       - "11434:11434"
     volumes:
