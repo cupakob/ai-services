@@ -13,6 +13,7 @@ services:
       - N8N_BASIC_AUTH_PASSWORD=admin
       - N8N_SECURE_COOKIE=false
       - NODE_FUNCTION_ALLOW_EXTERNAL=jsdom
+      - NODE_OPTIONS=--dns-result-order=ipv4first
     networks:
       - pw-network
 
