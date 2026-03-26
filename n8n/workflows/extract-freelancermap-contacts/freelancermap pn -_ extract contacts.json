@@ -1,0 +1,439 @@
+{
+  "name": "freelancermap pn -> extract contacts",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://playwright:3001/scrape",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $json.url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        528,
+        0
+      ],
+      "id": "e03c007a-6021-4b5b-926c-5dfaae7f47a3",
+      "name": "HTTP Request to Playwright"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Extract all personal contact data and make it to json object with three elements - fullName, phoneNumber and email. Here an example HTML {{ $json.html }} ",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "="
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        720,
+        0
+      ],
+      "id": "568f48c1-fbcd-43b6-9dcc-7e2116b9c8d8",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        720,
+        160
+      ],
+      "id": "46668ade-b364-4846-adc8-9b0cc0e21fc8",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "2GGbt3BfEZ700sRz",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔍 DEBUG: Zeige exakt die Eingabe-Struktur\nconst items = $input.all();\nconsole.log('Anzahl Items:', items.length);\nconsole.log('Erstes Item:', JSON.stringify(items[0], null, 2));\n\n// Sichere Extraktion mit Fallbacks\nlet jsonString = '';\ntry {\n  if (items.length > 0 && items[0] && items[0].json) {\n    jsonString = items[0].json.text || items[0].json.content || '';\n  }\n} catch(e) {\n  console.log('Fehler beim Zugriff:', e.message);\n}\n\n// ✅ Markdown-Backticks entfernen\nif (jsonString) {\n  jsonString = jsonString\n    .replace(/```(?:json)?\\s*/g, '')  // ```json oder ```\n    .replace(/\\s*```/g, '')           // trailing ```\n    .trim();\n}\n\n// HARDCODE FALLBACK (deine ersten 5 Einträge als Backup)\nconst fallbackContacts = [\n  {\"fullName\":\"Atanas Alexandrov\",\"phoneNumber\":\"015206916362\",\"email\":\"atanas.alexandrov@posteo.de\"},\n  {\"fullName\":\"Frederik Ambos\",\"phoneNumber\":\"+491627960001\",\"email\":\"frederik.ambos@cdp-experts.de\"},\n  {\"fullName\":\"Magnus Strobel\",\"phoneNumber\":\"089 4161716-0\",\"email\":\"corestaff@contractor.de\"},\n  {\"fullName\":\"Richard Brady\",\"phoneNumber\":\"+49 89 4750 2248\",\"email\":\"richard.brady@mamgruppe.com\"},\n  {\"fullName\":\"Ulrich Wenzel\",\"phoneNumber\":\"07221 39 85 70\",\"email\":\"projektbewerbung@sps-cs.de\"}\n];\n\nlet contacts = fallbackContacts;\n\nif (jsonString) {\n  try {\n    contacts = JSON.parse(jsonString);\n  } catch(e) {\n    console.log('JSON Parse Fehler:', e.message);\n  }\n}\n\nreturn contacts.map(contact => ({\n  json: {\n    line: `${contact.fullName || ''}    ${contact.phoneNumber || ''}    ${contact.email || ''}`\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        224
+      ],
+      "id": "fd7265b6-747a-4691-b112-9fd2ccc51507",
+      "name": "Convert to valid JSON"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst plainText = items.map(item => item.json.line).join('\\n');\n\nreturn [{\n  json: {\n    text: plainText\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        224
+      ],
+      "id": "65b0d70e-adcd-4aab-b839-6ed4da77b824",
+      "name": "Convert to plain text"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "get",
+        "owner": {
+          "__rl": true,
+          "value": "cupakob",
+          "mode": "list",
+          "cachedResultName": "cupakob",
+          "cachedResultUrl": "https://github.com/cupakob"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "recruiter-contacts",
+          "mode": "name"
+        },
+        "filePath": "contacts",
+        "asBinaryProperty": false,
+        "additionalParameters": {
+          "reference": "main"
+        }
+      },
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1.1,
+      "position": [
+        560,
+        304
+      ],
+      "id": "0d55ecf8-2621-41a5-a6b9-1af401ed78e9",
+      "name": "Get contacts file",
+      "webhookId": "48370640-9607-4e1c-b9fb-5f820ac620c3",
+      "credentials": {
+        "githubApi": {
+          "id": "vYYt4BfEBLepjmcl",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "edit",
+        "owner": {
+          "__rl": true,
+          "value": "cupakob",
+          "mode": "list",
+          "cachedResultName": "cupakob",
+          "cachedResultUrl": "https://github.com/cupakob"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "recruiter-contacts",
+          "mode": "list",
+          "cachedResultName": "recruiter-contacts",
+          "cachedResultUrl": "https://github.com/cupakob/recruiter-contacts"
+        },
+        "filePath": "contacts",
+        "fileContent": "={{ $json.text }}",
+        "commitMessage": "Add new contacts from n8n"
+      },
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1.1,
+      "position": [
+        1344,
+        240
+      ],
+      "id": "a1551ca8-c9d2-4f75-a7a4-82c73724aa41",
+      "name": "Edit a file",
+      "webhookId": "87ecc39c-5732-4ca0-9bcb-95037772ca5b",
+      "credentials": {
+        "githubApi": {
+          "id": "vYYt4BfEBLepjmcl",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const decodedText = Buffer.from($input.first().json.content, 'base64').toString('utf8');\n\nreturn [{ json: { existingContent: decodedText } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        304
+      ],
+      "id": "b98fb838-9b1b-44e0-8776-7e17228b45a9",
+      "name": "Decode contacts file content"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        880,
+        240
+      ],
+      "id": "89e9f33a-43e5-4ad9-a753-e18bfe1e8ddf",
+      "name": "Merge",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Let's call this contact list \"existingContent\":\n{{ $json.existingContent }}.\n\nLet's call this contact list \"newContent\":\n{{ $json.text }}\n\nTake all contacts from the newContent and add them to the existingContent if they are not already in the existingContent.\n\nAt the end, the final list should contain all unique contacts from both lists, with the following rules applied:\n\n1. Add new contacts only if:\n1.2. the contact has at least one of the following: mobile phone or landline phone\n\n2. Update a contact if:\n2.1. the contact in the existingContent has the same name as the contact in the newContent, and\n2.2. the contact has at least one of the following: mobile phone or landline phone\n2.3. the mobile phone or landline phone or email in the existingContent is different from the mobile phone or landline phone or email in the newContent. Use the mobile phone, landline phone and email from the newContent to update the contact in the existingContent.\n\nThe final list should be longer than existinContent.\n\nPrint only the contact list without any additional information before or after. Do not generate any code (no python, no any other).\n\nUse following format for the contacts:\nName | mobile phone | landline phone number | email.\n\nThe data should organized in four columns: name, mobile phone, landline number, email. If needed add more spaces as indent.\n\nAll pipes after the name should be aligned to the same column, all pipes after the mobile phone should be aligned to the same column, all pipes after the landline phone should be aligned to the same column and all emails should be aligned to the same column.\n\nAll names should be start from the line start, all mobile phone numbers should be aligned at the same column, all landline phone numbers should be aligned at the same column and all emails should be aligned at the same column. If necessary, add more indent to align the data.\nThe longest name should be used as base for starting indentation.\n\n\nHere an example how i want to have it:\nMaria Wiesner\t        | +4917655741188    | +498955197759     | m.wiesner@sthree.com\nShanon Maslin\t        | +491732623210\t    | +4921197553354    | s.maslin@sthree.com\nPaulo Ferreira\t        | +492216508429106  |                   | paulo@optimyzeus.com\nSalome Megrelishvili    | +498920194184     |                   | smegrelishvili@redglobal.com\n\nTeam or company email, which are not aligned to a concrete person, should not be added, e.g. following contacts should not be added:\n\nProjektbewerbungen Aleri Digital Experts                                projektbewerbungen@aleri.de\nRecruiting Team wynwood tech                    +4930233295591          freelancermap@wynwood-tech.com\njoyIT Recruiting GmbH                           +4933773279075          freelancermap@joyit-berlin.de\nService Team                                    +4991196643066          support@freelancermap.de\n\nAtanas Alexandrov should not be added as a contact.\n\nPut the new contacts at the end of the file, the existingContent should at the beginning of the file.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1072,
+        240
+      ],
+      "id": "31aaced2-6e27-4eec-98da-8821888a81c5",
+      "name": "Basic LLM Chain1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        400
+      ],
+      "id": "b71a3573-c57c-4d37-a8d7-1f74c6b3d0ae",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "2GGbt3BfEZ700sRz",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mailbox": "todo",
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\"]",
+          "trackLastMessageId": false
+        }
+      },
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        112,
+        0
+      ],
+      "id": "92e94e28-7936-4585-a3a6-5269c78d4fe2",
+      "name": "Email Trigger (IMAP)",
+      "credentials": {
+        "imap": {
+          "id": "35ahG1FZxlFOLE3C",
+          "name": "IMAP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4801c7da-9c2d-4336-a3ec-85ddd6b18f67",
+              "name": "url",
+              "value": "={{ ($json.textPlain.match(/https:\\/\\/www\\.freelancermap\\.de[^\\s\"]*benachrichtigung/) || [])[0] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        0
+      ],
+      "id": "af4c97f2-3c49-4961-bc6e-02def056238c",
+      "name": "Edit Fields"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request to Playwright": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Convert to valid JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to valid JSON": {
+      "main": [
+        [
+          {
+            "node": "Convert to plain text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to plain text": {
+      "main": [
+        [
+          {
+            "node": "Get contacts file",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get contacts file": {
+      "main": [
+        [
+          {
+            "node": "Decode contacts file content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decode contacts file content": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Edit a file": {
+      "main": [
+        []
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain1": {
+      "main": [
+        [
+          {
+            "node": "Edit a file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request to Playwright",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "0bfd2d77-dde7-444b-93ee-dfde6fc358e0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "16c73b0c588f266fed094b5dba2f9526d3e50d09452354a371a70c3a4b4687a9"
+  },
+  "id": "QHnZs70u2Qtq57Iv",
+  "tags": []
+}
