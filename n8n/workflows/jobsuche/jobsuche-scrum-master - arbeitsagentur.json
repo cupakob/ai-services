@@ -1,0 +1,232 @@
+{
+  "name": "Jobsuche Scrum Master Köln/Bonn",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "d90c58ea-8bff-4b40-a8d0-b4d8045fc10f",
+      "name": "Stündlich",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -10512,
+        6304
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4/jobs",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "was",
+              "value": "Scrum Master"
+            },
+            {
+              "name": "wo",
+              "value": "Köln"
+            },
+            {
+              "name": "umkreis",
+              "value": "50"
+            },
+            {
+              "name": "angebotsart",
+              "value": "1"
+            },
+            {
+              "name": "aktualitaet",
+              "value": "100"
+            },
+            {
+              "name": "page",
+              "value": "1"
+            },
+            {
+              "name": "size",
+              "value": "50"
+            },
+            {
+              "name": "pav",
+              "value": "false"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "jobboerse-jobsuche"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Jobsuche/2.9.2 (de.arbeitsagentur.jobboerse; build:1077; iOS 15.1.0) Alamofire/5.4.4"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "28f1ba64-6228-4825-b1d2-b5542296ff63",
+      "name": "Arbeitsagentur API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -10288,
+        6304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function esc(str) {\n  return String(str || '')\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;');\n}\n\nconst jobs = $input.first().json.stellenangebote || [];\n\n// Nur Jobs der letzten 5 Minuten und 5 secunden\nconst cutoff = new Date(Date.now() - 910 * 1000);\nconst recentJobs = jobs.filter(job => {\n  if (!job.modifikationsTimestamp) return false;\n  return new Date(job.modifikationsTimestamp) >= cutoff;\n});\n\nif (recentJobs.length === 0) {\n  return [{ json: { hasJobs: false, telegramText: '', jobCount: 0 } }];\n}\n\nlet text = '';\nrecentJobs.forEach((job, i) => {\n  const titel = esc(job.titel);\n  const arbeitgeber = esc(job.arbeitgeber);\n  const ort = esc(job.arbeitsort?.ort || job.arbeitsort?.plz || 'k.A.');\n  const refnr = job.refnr || '';\n  const jobUrl = job.externeUrl ? job.externeUrl : `https://www.arbeitsagentur.de/jobsuche/jobdetail/${refnr}`;\n  const veroeffentlicht = job.aktuelleVeroeffentlichungsdatum\n    ? new Date(job.aktuelleVeroeffentlichungsdatum).toLocaleDateString('de-DE')\n    : 'k.A.';\n  const modified = job.modifikationsTimestamp\n    ? new Date(job.modifikationsTimestamp).toLocaleString('de-DE')\n    : 'k.A.';\n  const arbeitszeit = Array.isArray(job.arbeitszeit)\n    ? esc(job.arbeitszeit.join(', '))\n    : esc(job.arbeitszeit || 'k.A.');\n\n  text += `<b>${i + 1}. ${titel}</b>\\n`;\n  text += `Arbeitgeber: ${arbeitgeber}\\n`;\n  text += `Ort: ${ort}\\n`;\n  text += `Arbeitszeit: ${arbeitszeit}\\n`;\n  text += `Veroeffentlicht: ${veroeffentlicht}\\n`;\n  text += `Aktualisiert: ${modified}\\n`;\n  text += `<a href='${jobUrl}'>Zur Stelle</a>\\n\\n`;\n});\n\nreturn [{ json: { hasJobs: true, telegramText: text, jobCount: recentJobs.length } }];"
+      },
+      "id": "b4f5589b-7afa-48cf-884f-5b73c5771717",
+      "name": "Nachricht formatieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -10080,
+        6304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "has-jobs",
+              "leftValue": "={{ $json.hasJobs }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "901cd42b-ea8a-4baf-a4d0-8ab72e2b5316",
+      "name": "Jobs vorhanden?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -9856,
+        6304
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "7461331112",
+        "text": "=<b>{{ $json.jobCount }} Scrum Master Job(s)</b> - Raum Köln/Bonn\n\n{{ $json.telegramText }}",
+        "additionalFields": {
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "f9f1731c-282e-4098-b04e-cdc491c03380",
+      "name": "Telegram senden",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        -9632,
+        6176
+      ],
+      "webhookId": "3556a937-13ae-44d6-a4b7-5c52ace6354c",
+      "credentials": {
+        "telegramApi": {
+          "id": "rklKtRaqUVtTpYYC",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "079775aa-ab23-4809-9c34-371c6142784a",
+      "name": "Keine Jobs (Ende)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -9632,
+        6416
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Stündlich": {
+      "main": [
+        [
+          {
+            "node": "Arbeitsagentur API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Arbeitsagentur API": {
+      "main": [
+        [
+          {
+            "node": "Nachricht formatieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nachricht formatieren": {
+      "main": [
+        [
+          {
+            "node": "Jobs vorhanden?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jobs vorhanden?": {
+      "main": [
+        [
+          {
+            "node": "Telegram senden",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Keine Jobs (Ende)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "7b41c035-e234-4b49-ae4d-9d66f86b5b72",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "64094ca7a5a36732f288d31f7506b6a12e6d968330cffbf858779324b78b092f"
+  },
+  "id": "WXCVcvmy2pW3sz9R",
+  "tags": []
+}
