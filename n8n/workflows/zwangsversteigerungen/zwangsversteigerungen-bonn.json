@@ -1,0 +1,165 @@
+{
+  "name": "Zwangsversteigerungen Bonn",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "zvg-node-0001",
+      "name": "Taeglich 8 Uhr",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [-10960, 7584]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.zvg-portal.de/index.php?button=Suchen",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "ger_name", "value": "Bonn" },
+            { "name": "order_by", "value": "2" },
+            { "name": "land_abk", "value": "nw" },
+            { "name": "ger_id", "value": "R3201" },
+            { "name": "az1", "value": "" },
+            { "name": "az2", "value": "" },
+            { "name": "az3", "value": "" },
+            { "name": "az4", "value": "" },
+            { "name": "art", "value": "" },
+            { "name": "obj", "value": "" },
+            { "name": "obj_arr[]", "value": "17" },
+            { "name": "obj_liste", "value": "17" },
+            { "name": "str", "value": "" },
+            { "name": "hnr", "value": "" },
+            { "name": "plz", "value": "" },
+            { "name": "ort", "value": "" },
+            { "name": "ortsteil", "value": "" },
+            { "name": "vtermin", "value": "" },
+            { "name": "btermin", "value": "" }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "zvg-node-0002",
+      "name": "ZVG Portal abrufen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [-10736, 7584]
+    },
+    {
+      "parameters": {
+        "jsCode": "function cleanHtml(str) {\n  return String(str || '')\n    .replace(/<!--[^>]*-->/g, '')\n    .replace(/<[^>]+>/g, '')\n    .replace(/&uuml;/g, 'ü').replace(/&auml;/g, 'ä').replace(/&ouml;/g, 'ö')\n    .replace(/&Uuml;/g, 'Ü').replace(/&Auml;/g, 'Ä').replace(/&Ouml;/g, 'Ö')\n    .replace(/&szlig;/g, 'ß').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ')\n    .replace(/&#128;/g, '€').replace(/&lt;/g, '<').replace(/&gt;/g, '>')\n    .replace(/\\s+/g, ' ').trim();\n}\n\nfunction esc(str) {\n  return String(str || '')\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;');\n}\n\n// Datum aus 'letzte Aktualisierung DD-MM-YYYY HH:MM' parsen\nfunction parseAktualisierung(block) {\n  const m = block.match(/letzte Aktualisierung\\s+(\\d{2})-(\\d{2})-(\\d{4})\\s+(\\d{2}):(\\d{2})/);\n  if (!m) return null;\n  // Als lokale Zeit interpretieren (analog zu Jobsuche)\n  return new Date(m[3] + '-' + m[2] + '-' + m[1] + 'T' + m[4] + ':' + m[5] + ':00');\n}\n\nconst html = $input.first().json.data || '';\n\n// Nur Eintraege der letzten 25 Stunden beruecksichtigen (Workflow laeuft 1x taeglich)\nconst cutoffTime = new Date(Date.now() - 25 * 60 * 60 * 1000);\n\n// Bereits gesendete Aktenzeichen laden (persistent ueber Runs)\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.sentAz) staticData.sentAz = {};\n\n// Alte Eintraege aufraumen (aelter als 7 Tage)\nconst sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;\nfor (const az of Object.keys(staticData.sentAz)) {\n  if (staticData.sentAz[az] < sevenDaysAgo) delete staticData.sentAz[az];\n}\n\n// Objekte extrahieren: jeder Block beginnt mit <!--Aktenzeichen--->\nconst blocks = html.split(/<!--Aktenzeichen--->/);\nconst recentObjects = [];\n\nfor (let i = 1; i < blocks.length; i++) {\n  const block = blocks[i];\n\n  // Zeitfilter: nur Eintraege der letzten 25 Stunden\n  const aktualisierung = parseAktualisierung(block);\n  if (!aktualisierung || aktualisierung < cutoffTime) continue;\n\n  const azMatch = block.match(/<nobr>\\s*([^<]+?)\\s*&nbsp;\\(Detailansicht\\)\\s*<\\/nobr>/i);\n  if (!azMatch) continue;\n  const aktenzeichen = azMatch[1].trim();\n\n  const zvgMatch = block.match(/href=index\\.php\\?button=showZvg&(?:amp;)?zvg_id=(\\d+)&(?:amp;)?land_abk=(\\w+)/i);\n  const detailLink = zvgMatch\n    ? 'https://www.zvg-portal.de/index.php?button=showZvg&zvg_id=' + zvgMatch[1] + '&land_abk=' + zvgMatch[2]\n    : 'https://www.zvg-portal.de/index.php?button=Suchen';\n\n  const lageMatch = block.match(/Objekt\\/Lage<\\/td>[\\s\\S]*?<b>([\\s\\S]*?)<\\/b>([^<]*(?:<[^/][^>]*>[^<]*<\\/[^>]+>[^<]*)*)/i);\n  let lage = 'k.A.';\n  if (lageMatch) {\n    const typ = cleanHtml(lageMatch[1]).replace(/:$/, '').trim();\n    const adresse = cleanHtml(lageMatch[2]).replace(/^[:\\s]+/, '').trim();\n    lage = typ + (adresse ? ': ' + adresse : '');\n  }\n\n  const vwMatch = block.match(/Verkehrswert[\\s\\S]*?<b>([^<]+)<\\/b>/i);\n  const verkehrswert = vwMatch ? cleanHtml(vwMatch[1]) : 'k.A.';\n\n  const terminMatch = block.match(/Termin<\\/td><td[^>]*colspan=2>([^<]+)/i);\n  const termin = terminMatch ? cleanHtml(terminMatch[1]) : 'k.A.';\n\n  recentObjects.push({ aktenzeichen, detailLink, lage, verkehrswert, termin });\n}\n\n// Nur Objekte, die noch nicht gesendet wurden\nconst newObjects = recentObjects.filter(obj => !staticData.sentAz[obj.aktenzeichen]);\n\nif (newObjects.length === 0) {\n  return [{ json: { hasObjects: false, telegramText: '', objectCount: 0 } }];\n}\n\n// Neue Aktenzeichen als gesendet markieren\nfor (const obj of newObjects) {\n  staticData.sentAz[obj.aktenzeichen] = Date.now();\n}\n\nlet text = '';\nnewObjects.forEach((obj, i) => {\n  text += '<b>' + (i + 1) + '. AZ: ' + esc(obj.aktenzeichen) + '</b>\\n';\n  text += 'Lage: ' + esc(obj.lage) + '\\n';\n  text += 'Termin: ' + esc(obj.termin) + '\\n';\n  text += 'Verkehrswert: ' + esc(obj.verkehrswert) + '\\n';\n  text += '<a href=\\'' + obj.detailLink + '\\'>Details ansehen</a>\\n\\n';\n});\n\nreturn [{ json: { hasObjects: true, telegramText: text, objectCount: newObjects.length } }];"
+      },
+      "id": "zvg-node-0003",
+      "name": "Nachricht formatieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-10528, 7584]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-objects",
+              "leftValue": "={{ $json.hasObjects }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "zvg-node-0004",
+      "name": "Objekte vorhanden?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-10304, 7584]
+    },
+    {
+      "parameters": {
+        "chatId": "7461331112",
+        "text": "=<b>{{ $json.objectCount }} neues Zwangsversteigerungsobjekt(e) in Bonn</b>\n\n{{ $json.telegramText }}",
+        "additionalFields": {
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "zvg-node-0005",
+      "name": "Telegram senden",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [-10080, 7456],
+      "webhookId": "3556a937-13ae-44d6-a4b7-5c52ace6354c",
+      "credentials": {
+        "telegramApi": {
+          "id": "rklKtRaqUVtTpYYC",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "zvg-node-0006",
+      "name": "Keine Objekte (Ende)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-10080, 7696]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Taeglich 8 Uhr": {
+      "main": [[{ "node": "ZVG Portal abrufen", "type": "main", "index": 0 }]]
+    },
+    "ZVG Portal abrufen": {
+      "main": [[{ "node": "Nachricht formatieren", "type": "main", "index": 0 }]]
+    },
+    "Nachricht formatieren": {
+      "main": [[{ "node": "Objekte vorhanden?", "type": "main", "index": 0 }]]
+    },
+    "Objekte vorhanden?": {
+      "main": [
+        [{ "node": "Telegram senden", "type": "main", "index": 0 }],
+        [{ "node": "Keine Objekte (Ende)", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a7b8c9d0-e1f2-3a4b-5c6d-7e8f9a0b1c2d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "64094ca7a5a36732f288d31f7506b6a12e6d968330cffbf858779324b78b092f"
+  },
+  "id": "ZVGBonnWorkflow001",
+  "tags": []
+}
