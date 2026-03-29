@@ -7,12 +7,15 @@ services:
       - "5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
+      - /etc/localtime:/etc/localtime:ro
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=admin
       - N8N_BASIC_AUTH_PASSWORD=admin
       - N8N_SECURE_COOKIE=false
       - NODE_FUNCTION_ALLOW_EXTERNAL=jsdom
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
+      - GENERIC_TIMEZONE=Europe/Berlin
       - NODE_OPTIONS=--dns-result-order=ipv4first
     networks:
       - pw-network
@@ -27,6 +30,7 @@ services:
       - "3001:3001"
     volumes:
       - ./scripts:/home/pwuser/scripts        # -v /path/to/your/scripts:/scripts
+      - ./output:/home/pwuser/output
     command: >
      sh -c "
       cd /home/pwuser/scripts &&
