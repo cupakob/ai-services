@@ -1,0 +1,335 @@
+{
+  "name": "email -> extract contacts",
+  "nodes": [
+    {
+      "parameters": {
+        "mailbox": "todo",
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\"]",
+          "trackLastMessageId": true
+        }
+      },
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        9408,
+        4544
+      ],
+      "id": "93d345f2-aa68-433e-abc9-08273b14d043",
+      "name": "Email Trigger (IMAP)",
+      "credentials": {
+        "imap": {
+          "id": "vMhkI1xG5O4L10YX",
+          "name": "IMAP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Extract the recruiter contact from the email signature. Return ONLY a JSON array in exactly this format:\n[{\"fullName\": \"Max Mustermann\", \"mobilePhone\": \"+491701234567\", \"landlinePhone\": \"+49301234567\", \"email\": \"max@example.com\"}]\n\nRules:\n- fullName: full name of the sender (NOT Atanas Alexandrov)\n- mobilePhone: mobile number, empty string if none\n- landlinePhone: office or landline number, empty string if none\n- email: must contain @, no website URLs, empty string if none\n- Return [] if no valid person contact with phone number found\n\nEmail:\n{{ $json.textPlain }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "="
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        9728,
+        4336
+      ],
+      "id": "4cc93b66-63e4-403d-9919-aaff5d47fa4b",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nlet parsed = [];\ntry {\n  const raw = items[0].json;\n  let jsonString = raw.text || raw.content || '';\n\n  if (jsonString) {\n    jsonString = jsonString\n      .replace(/```(?:json)?\\s*/g, '')\n      .replace(/\\s*```/g, '')\n      .trim();\n    parsed = JSON.parse(jsonString);\n  } else if (raw.fullName || raw.name) {\n    // format:json outputs fields directly instead of as a string\n    parsed = [raw];\n  } else {\n    // Try parsing the entire output as JSON string\n    const str = JSON.stringify(raw);\n    parsed = JSON.parse(str);\n  }\n} catch(e) {\n  console.log('Parse Fehler:', e.message);\n  return [];\n}\n\nif (!Array.isArray(parsed)) {\n  parsed = [parsed];\n}\n\n// Deep search helpers\nfunction findInObj(obj, keys) {\n  if (!obj || typeof obj !== 'object') return '';\n  for (const key of keys) {\n    if (obj[key] && typeof obj[key] === 'string') return obj[key];\n  }\n  for (const val of Object.values(obj)) {\n    if (typeof val === 'object') {\n      const found = findInObj(val, keys);\n      if (found) return found;\n    }\n    if (Array.isArray(val)) {\n      for (const item of val) {\n        const found = findInObj(item, keys);\n        if (found) return found;\n      }\n    }\n  }\n  return '';\n}\n\nfunction findEmail(obj) {\n  const str = JSON.stringify(obj);\n  const match = str.match(/\"([^\"]+@[^\"]+\\.[^\"]+)\"/);\n  return match ? match[1] : '';\n}\n\nfunction findPhones(obj) {\n  const str = JSON.stringify(obj);\n  const matches = [...str.matchAll(/\"(\\+?(?:49|0)[\\d\\s\\/()\\-]{6,20})\"/g)];\n  return matches.map(m => m[1].trim());\n}\n\nfunction isMobile(phone) {\n  const n = phone.replace(/[\\s()\\-\\/]/g, '');\n  return /^(\\+49|0049|0)(15|16|17)/.test(n);\n}\n\nconst contacts = parsed.map(obj => {\n  const fullName = findInObj(obj, ['fullName', 'name', 'full_name']) ||\n    (Array.isArray(obj.references) ? obj.references[0] : '') || '';\n  const email = findInObj(obj, ['email', 'mail', 'e-mail']) || findEmail(obj);\n  const validEmail = email.includes('@') ? email : '';\n\n  const phones = findPhones(obj);\n  let mobilePhone = findInObj(obj, ['mobilePhone', 'mobile', 'mobil', 'handy']) || '';\n  let landlinePhone = findInObj(obj, ['landlinePhone', 'landline', 'phone', 'tel', 'telefon', 'festnetz', 'büro', 'office']) || '';\n\n  if (!mobilePhone && !landlinePhone) {\n    for (const p of phones) {\n      if (isMobile(p) && !mobilePhone) mobilePhone = p;\n      else if (!isMobile(p) && !landlinePhone) landlinePhone = p;\n    }\n  }\n\n  return { fullName, mobilePhone, landlinePhone, email: validEmail };\n});\n\nreturn contacts.map(contact => ({\n  json: {\n    line: `${contact.fullName || ''}    ${contact.mobilePhone || ''}    ${contact.landlinePhone || ''}    ${contact.email || ''}`\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10128,
+        4336
+      ],
+      "id": "4ce6504a-6d08-4d9d-85e6-dcff18679b8f",
+      "name": "Convert to valid JSON"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst plainText = items.map(item => item.json.line).join('\\n');\n\nreturn [{\n  json: {\n    text: plainText\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10128,
+        4576
+      ],
+      "id": "ee988b05-5a55-48b7-972d-86bd8a72d514",
+      "name": "Convert to plain text"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "get",
+        "owner": {
+          "__rl": true,
+          "value": "cupakob",
+          "mode": "list",
+          "cachedResultName": "cupakob",
+          "cachedResultUrl": "https://github.com/cupakob"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "recruiter-contacts",
+          "mode": "name"
+        },
+        "filePath": "contacts.md",
+        "asBinaryProperty": false,
+        "additionalParameters": {
+          "reference": "main"
+        }
+      },
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1.1,
+      "position": [
+        10128,
+        4784
+      ],
+      "id": "33922253-eede-4a94-8b96-48d9b6dff862",
+      "name": "Get contacts file",
+      "webhookId": "8710dd3b-d4f5-430f-81e1-28a4f59f21ea",
+      "credentials": {
+        "githubApi": {
+          "id": "t30398bqsZwBSgK4",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const decodedText = Buffer.from($input.first().json.content, 'base64').toString('utf8');\n\nreturn [{ json: { existingContent: decodedText } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10288,
+        4784
+      ],
+      "id": "9d0f7d06-ae99-487a-8e53-200596a0905e",
+      "name": "Decode contacts file content"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        10448,
+        4688
+      ],
+      "id": "ccad6822-9544-4935-953c-26109e21de92",
+      "name": "Merge",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst existingContent = items[0].json.existingContent || '';\nconst newContactsText = items[0].json.text || '';\n\nfunction normalizePhone(phone) {\n  if (!phone) return '';\n  return phone.replace(/[\\s()\\-\\/]/g, '');\n}\n\nconst newLines = newContactsText.split('\\n').filter(l => l.trim());\nconst newContacts = newLines.map(line => {\n  const parts = line.split(/    +/).map(p => p.trim());\n  return {\n    fullName: parts[0] || '',\n    mobilePhone: normalizePhone(parts[1]),\n    landlinePhone: normalizePhone(parts[2]),\n    email: parts[3] || ''\n  };\n});\n\nconst companyKeywords = ['team', 'gmbh', 'recruiting', 'service', 'inc', 'ltd', ' ag', 'ug ', ' kg', 'ohg', 'gbr'];\n\nfunction isCompanyContact(name) {\n  const lower = name.toLowerCase();\n  return companyKeywords.some(kw => lower.includes(kw));\n}\n\nconst filtered = newContacts.filter(c => {\n  if (!c.fullName) return false;\n  const nameLower = c.fullName.toLowerCase();\n  if (nameLower.includes('alexandrov') || nameLower === 'atanas alexandrov') return false;\n  if (!c.mobilePhone && !c.landlinePhone) return false;\n  if (isCompanyContact(c.fullName)) return false;\n  return true;\n});\n\nfunction isDuplicate(contact) {\n  const nameLower = contact.fullName.toLowerCase();\n  return existingContent.toLowerCase().includes(nameLower);\n}\n\nconst toAdd = filtered.filter(c => !isDuplicate(c));\n\nif (toAdd.length === 0) {\n  return [{ json: { text: existingContent } }];\n}\n\nfunction padRight(str, len) {\n  if (!str) str = '';\n  return str.length >= len ? str : str + ' '.repeat(len - str.length);\n}\n\nconst newRows = toAdd.map(c => {\n  const name = padRight(c.fullName, 30);\n  const mobile = padRight(c.mobilePhone, 14);\n  const landline = padRight(c.landlinePhone, 16);\n  const email = padRight(c.email, 37);\n  return `| ${name} | ${mobile} | ${landline} | ${email} |`;\n});\n\nconst result = existingContent.trimEnd() + '\\n' + newRows.join('\\n');\n\nreturn [{ json: { text: result } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10656,
+        4688
+      ],
+      "id": "29cfdcaf-05ef-4c91-a684-f95155da2136",
+      "name": "Append new contacts"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "edit",
+        "owner": {
+          "__rl": true,
+          "value": "cupakob",
+          "mode": "list",
+          "cachedResultName": "cupakob",
+          "cachedResultUrl": "https://github.com/cupakob"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "recruiter-contacts",
+          "mode": "list",
+          "cachedResultName": "recruiter-contacts",
+          "cachedResultUrl": "https://github.com/cupakob/recruiter-contacts"
+        },
+        "filePath": "contacts.md",
+        "fileContent": "={{ $json.text }}",
+        "commitMessage": "Add new contacts from email via n8n"
+      },
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1.1,
+      "position": [
+        11072,
+        4688
+      ],
+      "id": "5965b6f0-80b9-486f-9564-9033b6f13521",
+      "name": "Edit a file",
+      "webhookId": "df28fb41-3b05-46b5-b372-32ede577f32c",
+      "credentials": {
+        "githubApi": {
+          "id": "t30398bqsZwBSgK4",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen2.5-coder:3b-instruct-q4_K_M",
+        "options": {
+          "format": "json"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        9664,
+        4544
+      ],
+      "id": "63fb91b9-95c2-4807-aaaf-b9c5f8ba942a",
+      "name": "Ollama Chat Model1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "WiyEmyfkJiIcRG6d",
+          "name": "Ollama account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Convert to valid JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to valid JSON": {
+      "main": [
+        [
+          {
+            "node": "Convert to plain text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to plain text": {
+      "main": [
+        [
+          {
+            "node": "Get contacts file",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get contacts file": {
+      "main": [
+        [
+          {
+            "node": "Decode contacts file content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decode contacts file content": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Append new contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append new contacts": {
+      "main": [
+        [
+          {
+            "node": "Edit a file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "ea7c7855-51ee-4429-991d-919f202d0d33",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "64094ca7a5a36732f288d31f7506b6a12e6d968330cffbf858779324b78b092f"
+  },
+  "id": "0Vt5KApALCwoBc0x",
+  "tags": []
+}
