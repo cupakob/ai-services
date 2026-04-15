@@ -1,5 +1,5 @@
 {
-  "name": "Jobsuche Scrum Master Köln/Bonn",
+  "name": "Jobsuche Scrum Master / Agile Coach Köln/Bonn",
   "nodes": [
     {
       "parameters": {
@@ -114,14 +114,14 @@
     {
       "parameters": {
         "chatId": "7461331112",
-        "text": "=<b>{{ $json.jobCount }} Scrum Master Job(s)</b> - Raum Köln/Bonn\n\n{{ $json.telegramText }}",
+        "text": "=<b>{{ $json.jobCount }} neue Stelle(n)</b> - Scrum Master / Agile Coach - Raum Köln/Bonn\n\n{{ $json.telegramText }}",
         "additionalFields": {
           "disable_web_page_preview": true,
           "parse_mode": "HTML"
         }
       },
       "id": "99815fdc-ef28-4af6-9b23-42ac5d53d73b",
-      "name": "Telegram senden",
+      "name": "Telegram Nasi",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.1,
       "position": [
@@ -129,6 +129,30 @@
         7888
       ],
       "webhookId": "3556a937-13ae-44d6-a4b7-5c52ace6354c",
+      "credentials": {
+        "telegramApi": {
+          "id": "rklKtRaqUVtTpYYC",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8783585865",
+        "text": "=<b>{{ $json.jobCount }} neue Stelle(n)</b> - Scrum Master / Agile Coach - Raum Köln/Bonn\n\n{{ $json.telegramText }}",
+        "additionalFields": {
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Telegram Vani",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        -9776,
+        7748
+      ],
       "credentials": {
         "telegramApi": {
           "id": "rklKtRaqUVtTpYYC",
@@ -196,7 +220,12 @@
       "main": [
         [
           {
-            "node": "Telegram senden",
+            "node": "Telegram Nasi",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram Vani",
             "type": "main",
             "index": 0
           }
@@ -227,7 +256,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "9afc7653-328c-48de-b960-48a3f511394c",
+  "versionId": "b1e2d3c4-f5a6-7890-bcde-f1a2b3c4d5e6",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "64094ca7a5a36732f288d31f7506b6a12e6d968330cffbf858779324b78b092f"
