@@ -12,10 +12,10 @@
       "type": "n8n-nodes-base.emailReadImap",
       "typeVersion": 2.1,
       "position": [
-        9408,
-        4544
+        21776,
+        12464
       ],
-      "id": "93d345f2-aa68-433e-abc9-08273b14d043",
+      "id": "808fa31b-bcff-4ede-90fd-2bf3d50f9bff",
       "name": "Email Trigger (IMAP)",
       "credentials": {
         "imap": {
@@ -40,10 +40,10 @@
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.9,
       "position": [
-        9728,
-        4336
+        22128,
+        12464
       ],
-      "id": "4cc93b66-63e4-403d-9919-aaff5d47fa4b",
+      "id": "640dcd24-4e3b-4450-9c5d-5e820ec5e0de",
       "name": "Basic LLM Chain"
     },
     {
@@ -53,10 +53,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        10128,
-        4336
+        22432,
+        12464
       ],
-      "id": "4ce6504a-6d08-4d9d-85e6-dcff18679b8f",
+      "id": "cfe54c9a-aefa-4a0f-a7ed-6eee6a7d6b2d",
       "name": "Convert to valid JSON"
     },
     {
@@ -66,10 +66,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        10128,
-        4576
+        22592,
+        12464
       ],
-      "id": "ee988b05-5a55-48b7-972d-86bd8a72d514",
+      "id": "7d9d6e69-483b-45ce-af5e-c0c8d2505f84",
       "name": "Convert to plain text"
     },
     {
@@ -97,10 +97,10 @@
       "type": "n8n-nodes-base.github",
       "typeVersion": 1.1,
       "position": [
-        10128,
-        4784
+        22736,
+        12576
       ],
-      "id": "33922253-eede-4a94-8b96-48d9b6dff862",
+      "id": "86e662ee-2ba5-4e88-a21c-1570c4ec64f6",
       "name": "Get contacts file",
       "webhookId": "8710dd3b-d4f5-430f-81e1-28a4f59f21ea",
       "credentials": {
@@ -117,10 +117,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        10288,
-        4784
+        22864,
+        12576
       ],
-      "id": "9d0f7d06-ae99-487a-8e53-200596a0905e",
+      "id": "161939ab-0734-4be1-b899-b5aacd20e7c8",
       "name": "Decode contacts file content"
     },
     {
@@ -132,10 +132,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        10448,
-        4688
+        23008,
+        12480
       ],
-      "id": "ccad6822-9544-4935-953c-26109e21de92",
+      "id": "9426d424-b5a7-4823-9a84-f650465d05b5",
       "name": "Merge",
       "alwaysOutputData": false
     },
@@ -146,10 +146,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        10656,
-        4688
+        23168,
+        12480
       ],
-      "id": "29cfdcaf-05ef-4c91-a684-f95155da2136",
+      "id": "7fb443f9-8480-4d7f-9d33-215e70c6dfd5",
       "name": "Append new contacts"
     },
     {
@@ -177,10 +177,10 @@
       "type": "n8n-nodes-base.github",
       "typeVersion": 1.1,
       "position": [
-        11072,
-        4688
+        23360,
+        12480
       ],
-      "id": "5965b6f0-80b9-486f-9564-9033b6f13521",
+      "id": "656d79a3-0bf6-48ba-932d-86c072191682",
       "name": "Edit a file",
       "webhookId": "df28fb41-3b05-46b5-b372-32ede577f32c",
       "credentials": {
@@ -192,6 +192,19 @@
     },
     {
       "parameters": {
+        "jsCode": "const item = $input.first().json;\nlet text = item.textPlain || '';\n\nif (!text && item.textHtml) {\n  text = item.textHtml\n    .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n    .replace(/<br\\s*\\/?>/gi, '\\n')\n    .replace(/<\\/p>/gi, '\\n')\n    .replace(/<\\/div>/gi, '\\n')\n    .replace(/<\\/li>/gi, '\\n')\n    .replace(/<[^>]+>/g, '')\n    .replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/&nbsp;/g, ' ')\n    .replace(/&#[0-9]+;/g, '')\n    .replace(/[ \\t]{2,}/g, ' ')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n}\n\nreturn [{ json: { ...item, textPlain: text } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        21952,
+        12464
+      ],
+      "id": "9877bcbb-eae5-43fc-96ec-875793193df9",
+      "name": "Extract plain text from HTML"
+    },
+    {
+      "parameters": {
         "model": "qwen2.5-coder:3b-instruct-q4_K_M",
         "options": {
           "format": "json"
@@ -200,10 +213,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [
-        9664,
-        4544
+        22128,
+        12656
       ],
-      "id": "63fb91b9-95c2-4807-aaaf-b9c5f8ba942a",
+      "id": "67315272-b944-4595-9b46-7fd8bf9288c7",
       "name": "Ollama Chat Model1",
       "credentials": {
         "ollamaApi": {
@@ -216,6 +229,17 @@
   "pinData": {},
   "connections": {
     "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "Extract plain text from HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract plain text from HTML": {
       "main": [
         [
           {
@@ -320,12 +344,12 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "ea7c7855-51ee-4429-991d-919f202d0d33",
+  "versionId": "c2d60da2-060d-45fb-b9b7-dffbc9312ccd",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "64094ca7a5a36732f288d31f7506b6a12e6d968330cffbf858779324b78b092f"
