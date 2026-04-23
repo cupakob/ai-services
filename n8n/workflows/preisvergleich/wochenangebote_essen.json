@@ -1,0 +1,511 @@
+{
+  "name": "Supermarkt Preisvergleich",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "trigger-schedule",
+      "name": "Wöchentlicher Start",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "var data = [\n  [\"Hackfleisch\",\"fleisch\"],\n  [\"Haehnchenbrust\",\"fleisch\"],\n  [\"Haehnchenfilet\",\"fleisch\"],\n  [\"Schweinefilet\",\"fleisch\"],\n  [\"Rinderfilet\",\"fleisch\"],\n  [\"Gefluegel\",\"fleisch\"],\n  [\"Lammfleisch\",\"fleisch\"],\n  [\"Kalbfleisch\",\"fleisch\"],\n  [\"Rinderhack\",\"fleisch\"],\n  [\"gemischtes Hack\",\"fleisch\"],\n  [\"Lammhack\",\"fleisch\"],\n  [\"Putenhack\",\"fleisch\"],\n  [\"Schweinehack\",\"fleisch\"],\n  [\"Kabeljau\",\"fisch\"],\n  [\"Rotbarsch\",\"fisch\"],\n  [\"Forelle\",\"fisch\"],\n  [\"Heilbutt\",\"fisch\"],\n  [\"Dorsch\",\"fisch\"],\n  [\"Fischfilet\",\"fisch\"],\n  [\"Garnelen\",\"fisch\"],\n  [\"Shrimps\",\"fisch\"],\n  [\"Riesengarnelen\",\"fisch\"],\n  [\"Calamari\",\"fisch\"],\n  [\"Tintenfisch\",\"fisch\"],\n  [\"Muscheln\",\"fisch\"],\n  [\"Jakobsmuscheln\",\"fisch\"],\n  [\"Meeresfruechte\",\"fisch\"],\n  [\"Cherrytomate\",\"gemuese\"],\n  [\"Cherrytomaten\",\"gemuese\"],\n  [\"Cherry Tomaten\",\"gemuese\"],\n  [\"Rispentomaten\",\"gemuese\"],\n  [\"Mini-Rispentomaten\",\"gemuese\"],\n  [\"Strauchtomaten\",\"gemuese\"],\n  [\"Cocktailtomaten\",\"gemuese\"],\n  [\"Romatomaten\",\"gemuese\"],\n  [\"Salatgurke\",\"gemuese\"],\n  [\"Salatgurken\",\"gemuese\"],\n  [\"Minigurke\",\"gemuese\"],\n  [\"Snackgurke\",\"gemuese\"],\n  [\"Schlangengurke\",\"gemuese\"],\n  [\"Paprika\",\"gemuese\"],\n  [\"Paprika rot\",\"gemuese\"],\n  [\"Paprika gelb\",\"gemuese\"],\n  [\"Paprika gruen\",\"gemuese\"],\n  [\"Zucchini\",\"gemuese\"],\n  [\"Aubergine\",\"gemuese\"],\n  [\"Peperoni\",\"gemuese\"],\n  [\"Spitzpaprika\",\"gemuese\"],\n  [\"Kartoffeln\",\"gemuese\"],\n  [\"Suesskartoffel\",\"gemuese\"],\n  [\"Drillinge\",\"gemuese\"],\n  [\"Salatkartoffeln\",\"gemuese\"],\n  [\"Fruehkartoffeln\",\"gemuese\"],\n  [\"Backkartoffel\",\"gemuese\"],\n  [\"Mozzarella\",\"kaese\"],\n  [\"Bio Mozzarella\",\"kaese\"],\n  [\"Gouda\",\"kaese\"],\n  [\"Camembert\",\"kaese\"],\n  [\"Frischkaese\",\"kaese\"],\n  [\"Halloumi\",\"kaese\"],\n  [\"Brie\",\"kaese\"],\n  [\"Parmigiano\",\"kaese\"],\n  [\"Parmesan\",\"kaese\"],\n  [\"Emmentaler\",\"kaese\"],\n  [\"Edamer\",\"kaese\"],\n  [\"Ricotta\",\"kaese\"],\n  [\"Feta\",\"kaese\"],\n  [\"Schnittkaese\",\"kaese\"],\n  [\"Huettenkaese\",\"kaese\"],\n  [\"Koerniger Frischkaese\",\"kaese\"],\n  [\"Doppelrahmfrischkaese\",\"kaese\"],\n  [\"Kraeuterfrischkaese\",\"kaese\"],\n  [\"Bacon\",\"wurst\"],\n  [\"Fruehstuecksspeck\",\"wurst\"],\n  [\"Salami\",\"wurst\"],\n  [\"Schinken\",\"wurst\"],\n  [\"Serrano\",\"wurst\"],\n  [\"Aufschnitt\",\"wurst\"],\n  [\"Putenbrust\",\"wurst\"],\n  [\"Haehnchenaufschnitt\",\"wurst\"],\n  [\"Leberwurst\",\"wurst\"],\n  [\"Bratwurst\",\"wurst\"],\n  [\"Wiener Wuerstchen\",\"wurst\"],\n  [\"Fleischwurst\",\"wurst\"],\n  [\"Joghurt\",\"milch\"],\n  [\"Sahnejoghurt\",\"milch\"],\n  [\"Naturjoghurt\",\"milch\"],\n  [\"Fruchtjoghurt\",\"milch\"],\n  [\"Skyr\",\"milch\"],\n  [\"Schmand\",\"milch\"],\n  [\"Schlagsahne\",\"milch\"],\n  [\"Sauerrahm\",\"milch\"],\n  [\"Creme fraiche\",\"milch\"],\n  [\"Quark\",\"milch\"],\n  [\"Magerquark\",\"milch\"],\n  [\"Speisequark\",\"milch\"],\n  [\"Vollmilch\",\"milch\"],\n  [\"Frischmilch\",\"milch\"],\n  [\"H-Milch\",\"milch\"],\n  [\"Weidemilch\",\"milch\"],\n  [\"Landmilch\",\"milch\"],\n  [\"Butter\",\"milch\"],\n  [\"Bio Butter\",\"milch\"],\n  [\"Suessrahmbutter\",\"milch\"],\n  [\"Sauerrahmbutter\",\"milch\"],\n  [\"Margarine\",\"milch\"],\n  [\"Kokosfett\",\"milch\"],\n  [\"Kerrygold\",\"milch\"],\n  [\"Pflanzenoel\",\"milch\"],\n  [\"Olivenoel\",\"gewuerze\"],\n  [\"Rapsoel\",\"gewuerze\"],\n  [\"Sonnenblumenoel\",\"gewuerze\"],\n  [\"Frittieroel\",\"gewuerze\"],\n  [\"Leinoel\",\"gewuerze\"],\n  [\"Balsamico\",\"gewuerze\"],\n  [\"Weissweinessig\",\"gewuerze\"],\n  [\"Apfelessig\",\"gewuerze\"],\n  [\"Meersalz\",\"gewuerze\"],\n  [\"Curry\",\"gewuerze\"],\n  [\"Paprikapulver\",\"gewuerze\"],\n  [\"Oregano\",\"gewuerze\"],\n  [\"Elstar\",\"obst\"],\n  [\"Braeburn\",\"obst\"],\n  [\"Gala\",\"obst\"],\n  [\"Jonagold\",\"obst\"],\n  [\"Boskoop\",\"obst\"],\n  [\"Conference\",\"obst\"],\n  [\"Williams\",\"obst\"],\n  [\"Birne\",\"obst\"],\n  [\"Banane\",\"obst\"],\n  [\"Erdbeere\",\"obst\"],\n  [\"Weintraube\",\"obst\"],\n  [\"Kiwi\",\"obst\"],\n  [\"Aprikose\",\"obst\"],\n  [\"Pfirsich\",\"obst\"],\n  [\"Nektarine\",\"obst\"],\n  [\"Melone\",\"obst\"],\n  [\"Wassermelone\",\"obst\"],\n  [\"Mango\",\"obst\"],\n  [\"Ketchup\",\"saucen\"],\n  [\"Passata\",\"saucen\"],\n  [\"Polpa\",\"saucen\"],\n  [\"Sojasauce\",\"saucen\"],\n  [\"Worcestershire\",\"saucen\"],\n  [\"Mayonnaise\",\"saucen\"],\n  [\"Senf\",\"saucen\"],\n  [\"Tomatenmark\",\"saucen\"],\n  [\"Tomatenkonzentrat\",\"saucen\"],\n  [\"Ajvar\",\"saucen\"],\n  [\"Pesto\",\"saucen\"],\n  [\"Tomatensauce\",\"saucen\"],\n  [\"Haferflocken\",\"fruehstueck\"],\n  [\"Granola\",\"fruehstueck\"],\n  [\"Cornflakes\",\"fruehstueck\"],\n  [\"Porridge\",\"fruehstueck\"],\n  [\"Cerealien\",\"fruehstueck\"],\n  [\"Muesli\",\"fruehstueck\"],\n  [\"Knuspermuesli\",\"fruehstueck\"],\n  [\"Fruehstuecksflocken\",\"fruehstueck\"],\n  [\"Spueltabs\",\"haushalt\"],\n  [\"Geschirrspuelmittel\",\"haushalt\"],\n  [\"Waschmittel\",\"haushalt\"],\n  [\"Muellbeutel\",\"haushalt\"],\n  [\"Reiniger\",\"haushalt\"],\n  [\"Allzweckreiniger\",\"haushalt\"],\n  [\"Spuelmittel\",\"haushalt\"],\n  [\"Toastbrot\",\"backwaren\"],\n  [\"Broetchen\",\"backwaren\"],\n  [\"Baguette\",\"backwaren\"],\n  [\"Laugenbrezeln\",\"backwaren\"],\n  [\"Dinkelbroetchen\",\"backwaren\"],\n  [\"Vollkorntoast\",\"backwaren\"],\n  [\"Koernerbroetchen\",\"backwaren\"],\n  [\"Brot\",\"backwaren\"],\n  [\"Doener\",\"fertiggericht\"],\n  [\"Falafel\",\"fertiggericht\"],\n  [\"Dueruem\",\"fertiggericht\"],\n  [\"Gyros\",\"fertiggericht\"],\n  [\"Pizza\",\"fertiggericht\"],\n  [\"Wrap\",\"fertiggericht\"],\n  [\"Frikassee\",\"fertiggericht\"],\n  [\"Tortellini\",\"fertiggericht\"],\n  [\"Schupfnudeln\",\"fertiggericht\"],\n  [\"Lasagne\",\"fertiggericht\"],\n  [\"Ravioli\",\"fertiggericht\"],\n  [\"Gnocchi\",\"fertiggericht\"],\n  [\"Tiefkuehlgericht\",\"fertiggericht\"],\n  [\"Chicken Burger\",\"fertiggericht\"],\n  [\"Veggie Burger\",\"fertiggericht\"],\n  [\"Fischburger\",\"fertiggericht\"],\n  [\"Hamburger\",\"fertiggericht\"],\n  [\"Cheeseburger\",\"fertiggericht\"],\n  [\"Pulled Pork Burger\",\"fertiggericht\"],\n  [\"Weizenmehl\",\"grundnahrung\"],\n  [\"Dinkelmehl\",\"grundnahrung\"],\n  [\"Roggenmehl\",\"grundnahrung\"],\n  [\"Pizzamehl\",\"grundnahrung\"],\n  [\"Jasminreis\",\"grundnahrung\"],\n  [\"Basmati\",\"grundnahrung\"],\n  [\"Vollkornreis\",\"grundnahrung\"],\n  [\"Milchreis\",\"grundnahrung\"],\n  [\"Spaghetti\",\"grundnahrung\"],\n  [\"Penne\",\"grundnahrung\"],\n  [\"Fusilli\",\"grundnahrung\"],\n  [\"Tagliatelle\",\"grundnahrung\"],\n  [\"Vollkornnudeln\",\"grundnahrung\"],\n  [\"Eier\",\"grundnahrung\"],\n  [\"Kaffee\",\"kaffee\"],\n  [\"Espresso\",\"kaffee\"],\n  [\"Filterkaffee\",\"kaffee\"],\n  [\"Kaffeebohnen\",\"kaffee\"],\n  [\"Instantkaffee\",\"kaffee\"],\n  [\"Lungo\",\"kaffee\"],\n  [\"Kaffeepad\",\"kaffee\"],\n  [\"Tofu\",\"vegan\"],\n  [\"Tempeh\",\"vegan\"],\n  [\"Veggie Nuggets\",\"vegan\"],\n  [\"Seitan\",\"vegan\"],\n  [\"Veganer Aufschnitt\",\"vegan\"],\n  [\"Veganer Kaese\",\"vegan\"],\n  [\"Haferbrot\",\"vegan\"]\n];\nreturn data.map(function(d) {\n  return {json: {name: d[0], kategorie: d[1], einheit: \"stk\", menge: 1}};\n});"
+      },
+      "id": "code-produktliste",
+      "name": "Produktliste",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.kaufda.de/api/v2/offers",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.name }}"
+            },
+            {
+              "name": "lat",
+              "value": "50.7285"
+            },
+            {
+              "name": "lng",
+              "value": "7.0270"
+            },
+            {
+              "name": "radius",
+              "value": "5"
+            },
+            {
+              "name": "limit",
+              "value": "20"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "kaufda-suche",
+      "name": "Kaufda Angebotssuche",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        480,
+        100
+      ],
+      "continueOnFail": true,
+      "notes": "Kaufda aggregiert Angebote vieler Supermärkte. Alternativ: marktguru.de API oder eigenes Scraping."
+    },
+    {
+      "parameters": {
+        "url": "https://mobile-api.rewe.de/api/v3/all-offers?marketCode=1940164",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "de-DE,de;q=0.9"
+            },
+            {
+              "name": "Referer",
+              "value": "https://www.rewe.de/"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "rewe-angebote",
+      "name": "REWE Angebote laden",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        480,
+        300
+      ],
+      "continueOnFail": true,
+      "notes": "Marktcode 1940164 aus der URL: rewe.de/angebote/.../1940164/... Lädt alle aktuellen Angebote auf einmal."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Zusammenführen aller Preisdaten\n// Input: Ergebnisse aus kaufda, rewe, aldi\n// Gibt strukturierte Preisliste pro Produkt zurück\n\nconst kaufdaData = $('Kaufda Angebotssuche').all();\nconst reweData = $('REWE Angebote filtern').all();\nconst aldiData = $('Aldi Angebote laden & filtern').all();\nconst produkte = $('Produktliste').all();\n\nconst ergebnisse = [];\n\nfor (const produkt of produkte) {\n  const p = produkt.json;\n  const preise = [];\n\n  // REWE Preise extrahieren\n  const reweRes = reweData.find(r => r.json._produktName === p.name);\n  if (reweRes && reweRes.json.products) {\n    const reweProdukt = reweRes.json.products[0];\n    if (reweProdukt) {\n      preise.push({\n        laden: 'REWE Oedekoven',\n        preis: reweProdukt.price?.value || null,\n        einheit: reweProdukt.grammage || p.einheit,\n        angebot: reweProdukt.discountPrice ? true : false,\n        angebotPreis: reweProdukt.discountPrice?.value || null\n      });\n    }\n  }\n\n  // Kaufda Preise extrahieren (aggregiert mehrere Läden)\n  const kaufdaRes = kaufdaData.filter(r => r.json._produktName === p.name);\n  for (const res of kaufdaRes) {\n    if (res.json.offers) {\n      for (const angebot of res.json.offers) {\n        const ladenName = angebot.merchant?.name?.toLowerCase() || '';\n        const relevanteLäden = ['edeka', 'aldi', 'dm', 'rewe'];\n        const istRelevant = relevanteLäden.some(l => ladenName.includes(l));\n        if (istRelevant) {\n          preise.push({\n            laden: angebot.merchant?.name,\n            preis: angebot.price,\n            einheit: angebot.unit || p.einheit,\n            angebot: angebot.isOffer || false,\n            angebotPreis: angebot.offerPrice || null\n          });\n        }\n      }\n    }\n  }\n\n  // Günstigsten Preis ermitteln\n  const mitPreis = preise.filter(pr => pr.preis !== null);\n  if (mitPreis.length === 0) {\n    ergebnisse.push({\n      ...p,\n      preise: [],\n      günstigster: null,\n      zugewiesen: []\n    });\n    continue;\n  }\n\n  const günstigsterPreis = Math.min(...mitPreis.map(pr => pr.angebotPreis || pr.preis));\n  const schwelle = günstigsterPreis * 1.20; // 20% Toleranz\n\n  // Alle Läden innerhalb 20%-Schwelle\n  const zugewiesen = mitPreis\n    .filter(pr => (pr.angebotPreis || pr.preis) <= schwelle)\n    .map(pr => ({\n      ...pr,\n      effektivPreis: pr.angebotPreis || pr.preis,\n      istGünstigster: (pr.angebotPreis || pr.preis) === günstigsterPreis\n    }));\n\n  ergebnisse.push({\n    ...p,\n    preise: mitPreis,\n    günstigsterPreis,\n    zugewiesen\n  });\n}\n\nreturn ergebnisse.map(e => ({ json: e }));"
+      },
+      "id": "preise-zusammenfuehren",
+      "name": "Preise zusammenführen & vergleichen",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1400,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Einkaufslisten pro Laden erstellen\nconst alle = $input.all();\n\nconst lädenMap = {\n  'REWE Oedekoven': [],\n  'EDEKA Schwindt': [],\n  'Aldi Süd': [],\n  'Ümit Market': [],\n  'dm': []\n};\n\n// Normalisierung der Ladennamen\nfunction normalisiereLaden(name) {\n  const n = (name || '').toLowerCase();\n  if (n.includes('rewe')) return 'REWE Oedekoven';\n  if (n.includes('edeka')) return 'EDEKA Schwindt';\n  if (n.includes('aldi')) return 'Aldi Süd';\n  if (n.includes('ümit') || n.includes('umit')) return 'Ümit Market';\n  if (n.includes('dm')) return 'dm';\n  return null;\n}\n\nfor (const item of alle) {\n  const p = item.json;\n  if (!p.zugewiesen || p.zugewiesen.length === 0) continue;\n\n  for (const zuweisung of p.zugewiesen) {\n    const laden = normalisiereLaden(zuweisung.laden);\n    if (laden && lädenMap[laden] !== undefined) {\n      lädenMap[laden].push({\n        produkt: p.name,\n        kategorie: p.kategorie,\n        menge: p.menge,\n        einheit: p.einheit,\n        preis: zuweisung.effektivPreis,\n        istAngebot: zuweisung.angebot,\n        istGünstigster: zuweisung.istGünstigster\n      });\n    }\n  }\n}\n\n// Output: ein Objekt pro Laden\nreturn Object.entries(lädenMap).map(([laden, produkte]) => ({\n  json: {\n    laden,\n    anzahlProdukte: produkte.length,\n    gesamtGeschätzt: produkte.reduce((s, p) => s + (p.preis || 0), 0).toFixed(2),\n    produkte: produkte.sort((a, b) => a.kategorie.localeCompare(b.kategorie))\n  }\n}));"
+      },
+      "id": "einkaufslisten-erstellen",
+      "name": "Einkaufslisten pro Laden",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1880,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Plaintext Einkaufslisten mit Stichpunkten generieren\nconst läden = $input.all();\nconst datum = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });\n\nlet text = `EINKAUFSLISTEN – ${datum}\\n`;\ntext += `${'='.repeat(50)}\\n\\n`;\n\nfor (const item of läden) {\n  const { laden, produkte, gesamtGeschätzt, anzahlProdukte } = item.json;\n\n  text += `${laden.toUpperCase()}\\n`;\n  text += `${'-'.repeat(laden.length)}\\n`;\n\n  if (produkte.length === 0) {\n    text += `  (keine Produkte diese Woche)\\n`;\n  } else {\n    // Nach Kategorie gruppieren\n    const nachKategorie = {};\n    for (const p of produkte) {\n      if (!nachKategorie[p.kategorie]) nachKategorie[p.kategorie] = [];\n      nachKategorie[p.kategorie].push(p);\n    }\n\n    for (const [kat, prods] of Object.entries(nachKategorie)) {\n      text += `\\n  [${kat.toUpperCase()}]\\n`;\n      for (const p of prods) {\n        // Preisanzeige: immer Vergleichspreis (pro kg/L) + optional Paketpreis\n        let preisText = 'Preis unbekannt';\n        if (p.comparisonDisplay) {\n          // Aldi: hat comparisonDisplay direkt\n          preisText = p.comparisonDisplay.trim();\n          if (p.paketpreisDisplay) {\n            preisText += `  (Paket: ${p.paketpreisDisplay.trim()})`;\n          }\n          if (p.sellingSize) {\n            preisText += `  [${p.sellingSize}]`;\n          }\n        } else if (p.preis) {\n          preisText = `${Number(p.preis).toFixed(2)} €`;\n          if (p.vergleichseinheit) {\n            preisText += `/${p.vergleichseinheit}`;\n          }\n        }\n\n        const angebotHinweis = p.istAngebot ? ' (Angebot!)' : '';\n        const günstigHinweis = p.istGünstigster ? ' ✓ günstigster' : '';\n        const titelHinweis = p.angebotTitel && p.angebotTitel !== p.produkt\n          ? `\\n      → ${p.angebotTitel}` : '';\n\n        text += `  • ${p.produkt} – ${preisText}${angebotHinweis}${günstigHinweis}${titelHinweis}\\n`;\n      }\n    }\n\n    text += `\\n  Geschätzte Summe: ca. ${gesamtGeschätzt} € (${anzahlProdukte} Produkte)\\n`;\n  }\n\n  text += `\\n`;\n}\n\ntext += `${'='.repeat(50)}\\n`;\ntext += `✓ günstigster = bester Preis im Vergleich aller Läden\\n`;\ntext += `Ohne ✓: liegt max. 20% über dem günstigsten Preis\\n`;\ntext += `Preise als Vergleichspreis pro kg/L wo verfügbar\\n`;\n\nreturn [{ json: { text, filename: 'einkaufslisten_' + new Date().toISOString().slice(0,10) + '.txt' } }];"
+      },
+      "id": "html-generieren",
+      "name": "Plaintext Einkaufslisten generieren",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2120,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "=📋 *Einkaufslisten diese Woche*\n\n{{ $('Einkaufslisten pro Laden').all().map(l => `*${l.json.laden}*: ${l.json.anzahlProdukte} Produkte, ca. ${l.json.gesamtGeschätzt} €`).join('\\n') }}\n\nDetaillierte Liste per E-Mail verschickt.",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-benachrichtigung",
+      "name": "Telegram Benachrichtigung",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        2360,
+        500
+      ],
+      "notes": "Optional: Telegram Bot Token + Chat ID als n8n-Variablen hinterlegen."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.zugewiesen.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        }
+      },
+      "id": "filter-ohne-preis",
+      "name": "Nur Produkte mit Preisdaten",
+      "type": "n8n-nodes-base.filter",
+      "position": [
+        1640,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// REWE Angebote filtern – passendes Angebot pro Produkt finden\nconst produktliste = $('Produktliste').all().map(p => p.json);\nconst reweResponse = $input.first();\n\nlet angebote = [];\ntry {\n  const body = reweResponse.json;\n  angebote = body.offers\n    || body.data?.offers\n    || (body.categories || []).flatMap(c => c.offers || [])\n    || [];\n} catch(e) {\n  angebote = [];\n}\n\nconst ergebnisse = [];\n\nfunction normalize(s) {\n    return s.toLowerCase()\n      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')\n      .replace(/Ä/g, 'ae').replace(/Ö/g, 'oe').replace(/Ü/g, 'ue')\n      .replace(/ß/g, 'ss').replace(/[()\\-\\/]/g, ' ');\n  }\n  for (const produkt of produktliste) {\n  const suchwoerter = normalize(produkt.name).split(' ').filter(w => w.length > 2);\n\n  const treffer = angebote.filter(a => {\n    const titel = normalize(a.title || a.name || '');\n    return suchwoerter.some(w => titel.includes(w));\n  });\n\n  for (const t of treffer) {\n    ergebnisse.push({\n      produkt: produkt.name,\n      kategorie: produkt.kategorie,\n      einheit: produkt.einheit,\n      menge: produkt.menge,\n      laden: 'REWE Oedekoven',\n      angebotTitel: t.title || t.name,\n      preis: t.price?.value ?? t.regularPrice ?? null,\n      angebotPreis: t.offerPrice?.value ?? t.discountedPrice ?? null,\n      gueltigBis: t.validUntil || t.endDate || null,\n      istAngebot: true\n    });\n  }\n\n  if (treffer.length === 0) {\n    ergebnisse.push({\n      produkt: produkt.name,\n      kategorie: produkt.kategorie,\n      einheit: produkt.einheit,\n      menge: produkt.menge,\n      laden: 'REWE Oedekoven',\n      angebotTitel: null,\n      preis: null,\n      angebotPreis: null,\n      gueltigBis: null,\n      istAngebot: false\n    });\n  }\n}\n\nreturn ergebnisse.map(e => ({ json: e }));"
+      },
+      "id": "rewe-filtern",
+      "name": "REWE Angebote filtern",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        720,
+        300
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://www.edeka.de/maerkte/073519/angebote/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "de-DE,de;q=0.9"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "edeka-scrape",
+      "name": "EDEKA Angebote laden",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        480,
+        500
+      ],
+      "continueOnFail": true,
+      "notes": "Markt-ID 073519 = EDEKA Schwindt, Hauptstr. 283, Alfter-Witterschlick. Direkt aus der URL."
+    },
+    {
+      "parameters": {
+        "jsCode": "// EDEKA HTML parsen und Angebote extrahieren\nconst produktliste = $('Produktliste').all().map(p => p.json);\nconst html = $input.first().json.data || $input.first().json.body || '';\n\n// Angebote aus HTML extrahieren\n// EDEKA-Struktur: h2/h3 mit Produktname, dann Preis-Div, dann Beschreibungstext\nconst angebote = [];\n\n// Regex für Angebot-Blöcke: Titel + Preis + Beschreibung\nconst angebotsBlocks = html.matchAll(\n  /###?\\s*Angebot:\\s*([^\\n]+)\\n[\\s\\S]*?(?:\\*\\*Gültig ab ([^*]+)\\*\\*)?\\s*[\\s\\S]*?(?:\\*\\*[-\\d]+\\s*%\\*\\*)?\\s*([\\d]+)\\.\\s*([\\d]+)\\s*([\\s\\S]*?)(?=###?\\s*Angebot:|$)/gi\n);\n\nfor (const match of angebotsBlocks) {\n  const name = match[1]?.trim() || '';\n  const gueltigAb = match[2]?.trim() || '';\n  const euro = parseInt(match[3] || '0');\n  const cent = parseInt(match[4] || '0');\n  const beschreibung = match[5]?.replace(/\\n+/g, ' ').trim().slice(0, 200) || '';\n\n  // Grundpreis extrahieren (z.B. \"1kg = € 3,73\")\n  const grundpreisMatch = beschreibung.match(/1kg\\s*=\\s*[€€]\\s*([\\d,]+)/);\n  const grundpreis = grundpreisMatch\n    ? parseFloat(grundpreisMatch[1].replace(',', '.'))\n    : null;\n\n  if (name && (euro > 0 || cent > 0)) {\n    angebote.push({\n      titel: name,\n      preis: euro + cent / 100,\n      grundpreis,\n      beschreibung: beschreibung.slice(0, 150),\n      gueltigAb,\n      laden: 'EDEKA Schwindt'\n    });\n  }\n}\n\n// Produkte mit Angeboten matchen\nconst ergebnisse = [];\n\nfunction normalize(s) {\n    return s.toLowerCase()\n      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')\n      .replace(/Ä/g, 'ae').replace(/Ö/g, 'oe').replace(/Ü/g, 'ue')\n      .replace(/ß/g, 'ss').replace(/[()\\-\\/]/g, ' ');\n  }\n  for (const produkt of produktliste) {\n  const suchwoerter = normalize(produkt.name).split(' ').filter(w => w.length > 2);\n\n  const treffer = angebote.filter(a => {\n    const titel = normalize(a.titel);\n    return suchwoerter.some(w => titel.includes(w));\n  });\n\n  for (const t of treffer) {\n    ergebnisse.push({\n      produkt: produkt.name,\n      kategorie: produkt.kategorie,\n      einheit: produkt.einheit,\n      menge: produkt.menge,\n      laden: 'EDEKA Schwindt',\n      angebotTitel: t.titel,\n      preis: t.preis,\n      grundpreis: t.grundpreis,\n      angebotPreis: t.preis,\n      beschreibung: t.beschreibung,\n      gueltigAb: t.gueltigAb,\n      istAngebot: true\n    });\n  }\n\n  if (treffer.length === 0) {\n    ergebnisse.push({\n      produkt: produkt.name,\n      kategorie: produkt.kategorie,\n      einheit: produkt.einheit,\n      menge: produkt.menge,\n      laden: 'EDEKA Schwindt',\n      angebotTitel: null,\n      preis: null,\n      grundpreis: null,\n      angebotPreis: null,\n      beschreibung: null,\n      gueltigAb: null,\n      istAngebot: false\n    });\n  }\n}\n\nreturn ergebnisse.map(e => ({ json: e }));"
+      },
+      "id": "edeka-filtern",
+      "name": "EDEKA Angebote parsen & filtern",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        720,
+        500
+      ],
+      "continueOnFail": true,
+      "notes": "Parsed das EDEKA-HTML. Extrahiert Produktname, Aktionspreis und Grundpreis (€/kg). Gültig ab-Datum wird mitgeführt."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aldi Angebote – dynamische Paginierung\n// Liest totalCount aus erstem Response und holt alle Seiten automatisch\nconst produktliste = $('Produktliste').all().map(p => p.json);\n\nconst BASE_URL = 'https://api.aldi-sued.de/v3/product-search';\nconst PARAMS = new URLSearchParams({\n  currency: 'EUR',\n  serviceType: 'walk-in',\n  categoryKey: '1588161426582123',\n  servicePoint: 'B441',\n  limit: '60'\n});\n\nasync function fetchSeite(offset) {\n  PARAMS.set('offset', String(offset));\n  const res = await fetch(`${BASE_URL}?${PARAMS.toString()}`);\n  if (!res.ok) throw new Error(`Aldi API Fehler: ${res.status}`);\n  return res.json();\n}\n\n// Erste Seite holen um totalCount zu ermitteln\nconst ersteSeite = await fetchSeite(0);\nconst totalCount = ersteSeite?.meta?.pagination?.totalCount || 0;\nlet alleAngebote = ersteSeite?.data || [];\n\n// Weitere Seiten holen falls nötig\nconst weitereOffsets = [];\nfor (let offset = 60; offset < totalCount; offset += 60) {\n  weitereOffsets.push(offset);\n}\n\nfor (const offset of weitereOffsets) {\n  const seite = await fetchSeite(offset);\n  alleAngebote = alleAngebote.concat(seite?.data || []);\n}\n\n// Produkte matchen\nconst ergebnisse = [];\n\nfunction normalize(s) {\n    return s.toLowerCase()\n      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')\n      .replace(/Ä/g, 'ae').replace(/Ö/g, 'oe').replace(/Ü/g, 'ue')\n      .replace(/ß/g, 'ss').replace(/[()\\-\\/]/g, ' ');\n  }\n  for (const produkt of produktliste) {\n  const suchwoerter = normalize(produkt.name).split(' ').filter(w => w.length > 2);\n\n  const treffer = alleAngebote.filter(a => {\n    const titel = normalize(a.name || '');\n    const marke = normalize(a.brandName || '');\n    return suchwoerter.some(w => titel.includes(w) || marke.includes(w));\n  });\n\n  for (const t of treffer) {\n    const compRaw = t.price?.comparisonDisplay || '';\n    const compMatch = compRaw.match(/([\\d,]+)\\s*[€$]/);\n    const preisProEinheit = compMatch\n      ? parseFloat(compMatch[1].replace(',', '.'))\n      : null;\n\n    const einheitMatch = compRaw.match(/\\/\\s*(\\d+\\s*(?:kg|l|ml|g|stk|st))/i);\n    const vergleichseinheit = einheitMatch ? einheitMatch[1].trim() : null;\n\n    const paketpreisCent = t.price?.amountRelevant ?? null;\n    const paketpreisEuro = paketpreisCent !== null ? paketpreisCent / 100 : null;\n    const paketpreisDisplay = t.price?.amountRelevantDisplay || null;\n\n    ergebnisse.push({\n      produkt: produkt.name,\n      kategorie: produkt.kategorie,\n      einheit: produkt.einheit,\n      menge: produkt.menge,\n      laden: 'Aldi Süd',\n      angebotTitel: `${t.brandName ? t.brandName + ' ' : ''}${t.name}`,\n      preis: preisProEinheit,\n      vergleichseinheit,\n      comparisonDisplay: compRaw,\n      paketpreis: paketpreisEuro,\n      paketpreisDisplay,\n      sellingSize: t.sellingSize || null,\n      istAngebot: true\n    });\n  }\n\n  if (treffer.length === 0) {\n    ergebnisse.push({\n      produkt: produkt.name,\n      kategorie: produkt.kategorie,\n      einheit: produkt.einheit,\n      menge: produkt.menge,\n      laden: 'Aldi Süd',\n      angebotTitel: null,\n      preis: null,\n      vergleichseinheit: null,\n      comparisonDisplay: null,\n      paketpreis: null,\n      paketpreisDisplay: null,\n      sellingSize: null,\n      istAngebot: false\n    });\n  }\n}\n\nreturn ergebnisse.map(e => ({ json: e }));"
+      },
+      "id": "aldi-filtern",
+      "name": "Aldi Angebote laden & filtern",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        480,
+        700
+      ],
+      "continueOnFail": true,
+      "notes": "Holt totalCount aus erstem API-Response und paginiert automatisch (je 60 Produkte) bis alle Angebote geladen sind. Funktioniert auch bei 150+ Produkten."
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "merge-kaufda-rewe",
+      "name": "Merge Kaufda & REWE",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 1,
+      "position": [
+        960,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "merge-edeka-aldi",
+      "name": "Merge EDEKA & Aldi",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 1,
+      "position": [
+        960,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "merge-angebote",
+      "name": "Alle Angebote mergen",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 1,
+      "position": [
+        1160,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Wöchentlicher Start": {
+      "main": [
+        [
+          {
+            "node": "Produktliste",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kaufda Angebotssuche": {
+      "main": [
+        [
+          {
+            "node": "Merge Kaufda & REWE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preise zusammenführen & vergleichen": {
+      "main": [
+        [
+          {
+            "node": "Nur Produkte mit Preisdaten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nur Produkte mit Preisdaten": {
+      "main": [
+        [
+          {
+            "node": "Einkaufslisten pro Laden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Einkaufslisten pro Laden": {
+      "main": [
+        [
+          {
+            "node": "Plaintext Einkaufslisten generieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REWE Angebote laden": {
+      "main": [
+        [
+          {
+            "node": "REWE Angebote filtern",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "REWE Angebote filtern": {
+      "main": [
+        [
+          {
+            "node": "Merge Kaufda & REWE",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Plaintext Einkaufslisten generieren": {
+      "main": [
+        [
+          {
+            "node": "Telegram Benachrichtigung",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EDEKA Angebote laden": {
+      "main": [
+        [
+          {
+            "node": "EDEKA Angebote parsen & filtern",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EDEKA Angebote parsen & filtern": {
+      "main": [
+        [
+          {
+            "node": "Merge EDEKA & Aldi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aldi Angebote laden & filtern": {
+      "main": [
+        [
+          {
+            "node": "Merge EDEKA & Aldi",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Kaufda & REWE": {
+      "main": [
+        [
+          {
+            "node": "Alle Angebote mergen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge EDEKA & Aldi": {
+      "main": [
+        [
+          {
+            "node": "Alle Angebote mergen",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Alle Angebote mergen": {
+      "main": [
+        [
+          {
+            "node": "Preise zusammenführen & vergleichen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Produktliste": {
+      "main": [
+        [
+          {
+            "node": "Kaufda Angebotssuche",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "REWE Angebote laden",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EDEKA Angebote laden",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Aldi Angebote laden & filtern",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [
+    "einkauf",
+    "preisvergleich",
+    "haushalt"
+  ]
+}
