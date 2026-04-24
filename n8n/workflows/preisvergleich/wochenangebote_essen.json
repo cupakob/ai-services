@@ -35,48 +35,6 @@
     },
     {
       "parameters": {
-        "url": "https://api.kaufda.de/api/v2/offers",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "q",
-              "value": "={{ $json.name }}"
-            },
-            {
-              "name": "lat",
-              "value": "50.7285"
-            },
-            {
-              "name": "lng",
-              "value": "7.0270"
-            },
-            {
-              "name": "radius",
-              "value": "5"
-            },
-            {
-              "name": "limit",
-              "value": "20"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 10000
-        }
-      },
-      "id": "kaufda-suche",
-      "name": "Kaufda Angebotssuche",
-      "type": "n8n-nodes-base.httpRequest",
-      "position": [
-        480,
-        100
-      ],
-      "continueOnFail": true,
-      "notes": "Kaufda aggregiert Angebote vieler Supermärkte. Alternativ: marktguru.de API oder eigenes Scraping."
-    },
-    {
-      "parameters": {
         "url": "https://mobile-api.rewe.de/api/v3/all-offers?marketCode=1940164",
         "sendHeaders": true,
         "headerParameters": {
@@ -105,6 +63,7 @@
       },
       "id": "rewe-angebote",
       "name": "REWE Angebote laden",
+      "disabled": true,
       "type": "n8n-nodes-base.httpRequest",
       "position": [
         480,
@@ -115,11 +74,12 @@
     },
     {
       "parameters": {
-        "jsCode": "// Zusammenführen aller Preisdaten\n// Input: Ergebnisse aus kaufda, rewe, aldi\n// Gibt strukturierte Preisliste pro Produkt zurück\n\nconst kaufdaData = $('Kaufda Angebotssuche').all();\nconst reweData = $('REWE Angebote filtern').all();\nconst aldiData = $('Aldi Angebote laden & filtern').all();\nconst produkte = $('Produktliste').all();\n\nconst ergebnisse = [];\n\nfor (const produkt of produkte) {\n  const p = produkt.json;\n  const preise = [];\n\n  // REWE Preise extrahieren\n  const reweRes = reweData.find(r => r.json._produktName === p.name);\n  if (reweRes && reweRes.json.products) {\n    const reweProdukt = reweRes.json.products[0];\n    if (reweProdukt) {\n      preise.push({\n        laden: 'REWE Oedekoven',\n        preis: reweProdukt.price?.value || null,\n        einheit: reweProdukt.grammage || p.einheit,\n        angebot: reweProdukt.discountPrice ? true : false,\n        angebotPreis: reweProdukt.discountPrice?.value || null\n      });\n    }\n  }\n\n  // Kaufda Preise extrahieren (aggregiert mehrere Läden)\n  const kaufdaRes = kaufdaData.filter(r => r.json._produktName === p.name);\n  for (const res of kaufdaRes) {\n    if (res.json.offers) {\n      for (const angebot of res.json.offers) {\n        const ladenName = angebot.merchant?.name?.toLowerCase() || '';\n        const relevanteLäden = ['edeka', 'aldi', 'dm', 'rewe'];\n        const istRelevant = relevanteLäden.some(l => ladenName.includes(l));\n        if (istRelevant) {\n          preise.push({\n            laden: angebot.merchant?.name,\n            preis: angebot.price,\n            einheit: angebot.unit || p.einheit,\n            angebot: angebot.isOffer || false,\n            angebotPreis: angebot.offerPrice || null\n          });\n        }\n      }\n    }\n  }\n\n  // Günstigsten Preis ermitteln\n  const mitPreis = preise.filter(pr => pr.preis !== null);\n  if (mitPreis.length === 0) {\n    ergebnisse.push({\n      ...p,\n      preise: [],\n      günstigster: null,\n      zugewiesen: []\n    });\n    continue;\n  }\n\n  const günstigsterPreis = Math.min(...mitPreis.map(pr => pr.angebotPreis || pr.preis));\n  const schwelle = günstigsterPreis * 1.20; // 20% Toleranz\n\n  // Alle Läden innerhalb 20%-Schwelle\n  const zugewiesen = mitPreis\n    .filter(pr => (pr.angebotPreis || pr.preis) <= schwelle)\n    .map(pr => ({\n      ...pr,\n      effektivPreis: pr.angebotPreis || pr.preis,\n      istGünstigster: (pr.angebotPreis || pr.preis) === günstigsterPreis\n    }));\n\n  ergebnisse.push({\n    ...p,\n    preise: mitPreis,\n    günstigsterPreis,\n    zugewiesen\n  });\n}\n\nreturn ergebnisse.map(e => ({ json: e }));"
+        "jsCode": "const angebote = $input.all().map(i => i.json).filter(i => i.laden);\n\nconst produktMap = {};\nfor (const a of angebote) {\n  if (!produktMap[a.produkt]) {\n    produktMap[a.produkt] = {\n      name: a.produkt,\n      kategorie: a.kategorie,\n      einheit: a.einheit,\n      menge: a.menge,\n      preise: []\n    };\n  }\n  produktMap[a.produkt].preise.push(a);\n}\n\nconst ergebnisse = [];\nfor (const p of Object.values(produktMap)) {\n  const mitPreis = p.preise.filter(pr => pr.preis !== null);\n  if (mitPreis.length === 0) continue;\n\n  const guenstigster = Math.min(...mitPreis.map(pr => pr.paketpreis ?? pr.preis));\n  const schwelle = guenstigster * 1.20;\n\n  const zugewiesen = mitPreis\n    .filter(pr => (pr.paketpreis ?? pr.preis) <= schwelle)\n    .map(pr => ({\n      laden: pr.laden,\n      preis: pr.preis,\n      paketpreis: pr.paketpreis,\n      effektivPreis: pr.paketpreis ?? pr.preis,\n      angebot: pr.istAngebot,\n      istGünstigster: (pr.paketpreis ?? pr.preis) === guenstigster,\n      comparisonDisplay: pr.comparisonDisplay ?? null,\n      paketpreisDisplay: pr.paketpreisDisplay ?? null,\n      vergleichseinheit: pr.vergleichseinheit ?? null,\n      sellingSize: pr.sellingSize ?? null,\n      angebotTitel: pr.angebotTitel ?? null\n    }));\n\n  ergebnisse.push({ ...p, günstigsterPreis: guenstigster, zugewiesen });\n}\n\nreturn ergebnisse.map(e => ({ json: e }));"
       },
       "id": "preise-zusammenfuehren",
       "name": "Preise zusammenführen & vergleichen",
       "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1400,
         400
@@ -127,11 +87,12 @@
     },
     {
       "parameters": {
-        "jsCode": "// Einkaufslisten pro Laden erstellen\nconst alle = $input.all();\n\nconst lädenMap = {\n  'REWE Oedekoven': [],\n  'EDEKA Schwindt': [],\n  'Aldi Süd': [],\n  'Ümit Market': [],\n  'dm': []\n};\n\n// Normalisierung der Ladennamen\nfunction normalisiereLaden(name) {\n  const n = (name || '').toLowerCase();\n  if (n.includes('rewe')) return 'REWE Oedekoven';\n  if (n.includes('edeka')) return 'EDEKA Schwindt';\n  if (n.includes('aldi')) return 'Aldi Süd';\n  if (n.includes('ümit') || n.includes('umit')) return 'Ümit Market';\n  if (n.includes('dm')) return 'dm';\n  return null;\n}\n\nfor (const item of alle) {\n  const p = item.json;\n  if (!p.zugewiesen || p.zugewiesen.length === 0) continue;\n\n  for (const zuweisung of p.zugewiesen) {\n    const laden = normalisiereLaden(zuweisung.laden);\n    if (laden && lädenMap[laden] !== undefined) {\n      lädenMap[laden].push({\n        produkt: p.name,\n        kategorie: p.kategorie,\n        menge: p.menge,\n        einheit: p.einheit,\n        preis: zuweisung.effektivPreis,\n        istAngebot: zuweisung.angebot,\n        istGünstigster: zuweisung.istGünstigster\n      });\n    }\n  }\n}\n\n// Output: ein Objekt pro Laden\nreturn Object.entries(lädenMap).map(([laden, produkte]) => ({\n  json: {\n    laden,\n    anzahlProdukte: produkte.length,\n    gesamtGeschätzt: produkte.reduce((s, p) => s + (p.preis || 0), 0).toFixed(2),\n    produkte: produkte.sort((a, b) => a.kategorie.localeCompare(b.kategorie))\n  }\n}));"
+        "jsCode": "// Einkaufslisten pro Laden erstellen\nconst alle = $input.all();\n\nconst lädenMap = {\n  'REWE Oedekoven': [],\n  'EDEKA Schwindt': [],\n  'Aldi Süd': []\n};\n\n// Normalisierung der Ladennamen\nfunction normalisiereLaden(name) {\n  const n = (name || '').toLowerCase();\n  if (n.includes('rewe')) return 'REWE Oedekoven';\n  if (n.includes('edeka')) return 'EDEKA Schwindt';\n  if (n.includes('aldi')) return 'Aldi Süd';\n  return null;\n}\n\nfor (const item of alle) {\n  const p = item.json;\n  if (!p.zugewiesen || p.zugewiesen.length === 0) continue;\n\n  for (const zuweisung of p.zugewiesen) {\n    const laden = normalisiereLaden(zuweisung.laden);\n    if (laden && lädenMap[laden] !== undefined) {\n      lädenMap[laden].push({\n        produkt: p.name,\n        kategorie: p.kategorie,\n        menge: p.menge,\n        einheit: p.einheit,\n        preis: zuweisung.effektivPreis,\n        istAngebot: zuweisung.angebot,\n        istGünstigster: zuweisung.istGünstigster,\n        comparisonDisplay: zuweisung.comparisonDisplay ?? null,\n        paketpreisDisplay: zuweisung.paketpreisDisplay ?? null,\n        sellingSize: zuweisung.sellingSize ?? null,\n        angebotTitel: zuweisung.angebotTitel ?? null\n      });\n    }\n  }\n}\n\n// Output: ein Objekt pro Laden\nreturn Object.entries(lädenMap).map(([laden, produkte]) => ({\n  json: {\n    laden,\n    anzahlProdukte: produkte.length,\n    gesamtGeschätzt: produkte.reduce((s, p) => s + (p.preis || 0), 0).toFixed(2),\n    produkte: produkte.sort((a, b) => a.kategorie.localeCompare(b.kategorie))\n  }\n}));"
       },
       "id": "einkaufslisten-erstellen",
       "name": "Einkaufslisten pro Laden",
       "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1880,
         400
@@ -139,11 +100,12 @@
     },
     {
       "parameters": {
-        "jsCode": "// Plaintext Einkaufslisten mit Stichpunkten generieren\nconst läden = $input.all();\nconst datum = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });\n\nlet text = `EINKAUFSLISTEN – ${datum}\\n`;\ntext += `${'='.repeat(50)}\\n\\n`;\n\nfor (const item of läden) {\n  const { laden, produkte, gesamtGeschätzt, anzahlProdukte } = item.json;\n\n  text += `${laden.toUpperCase()}\\n`;\n  text += `${'-'.repeat(laden.length)}\\n`;\n\n  if (produkte.length === 0) {\n    text += `  (keine Produkte diese Woche)\\n`;\n  } else {\n    // Nach Kategorie gruppieren\n    const nachKategorie = {};\n    for (const p of produkte) {\n      if (!nachKategorie[p.kategorie]) nachKategorie[p.kategorie] = [];\n      nachKategorie[p.kategorie].push(p);\n    }\n\n    for (const [kat, prods] of Object.entries(nachKategorie)) {\n      text += `\\n  [${kat.toUpperCase()}]\\n`;\n      for (const p of prods) {\n        // Preisanzeige: immer Vergleichspreis (pro kg/L) + optional Paketpreis\n        let preisText = 'Preis unbekannt';\n        if (p.comparisonDisplay) {\n          // Aldi: hat comparisonDisplay direkt\n          preisText = p.comparisonDisplay.trim();\n          if (p.paketpreisDisplay) {\n            preisText += `  (Paket: ${p.paketpreisDisplay.trim()})`;\n          }\n          if (p.sellingSize) {\n            preisText += `  [${p.sellingSize}]`;\n          }\n        } else if (p.preis) {\n          preisText = `${Number(p.preis).toFixed(2)} €`;\n          if (p.vergleichseinheit) {\n            preisText += `/${p.vergleichseinheit}`;\n          }\n        }\n\n        const angebotHinweis = p.istAngebot ? ' (Angebot!)' : '';\n        const günstigHinweis = p.istGünstigster ? ' ✓ günstigster' : '';\n        const titelHinweis = p.angebotTitel && p.angebotTitel !== p.produkt\n          ? `\\n      → ${p.angebotTitel}` : '';\n\n        text += `  • ${p.produkt} – ${preisText}${angebotHinweis}${günstigHinweis}${titelHinweis}\\n`;\n      }\n    }\n\n    text += `\\n  Geschätzte Summe: ca. ${gesamtGeschätzt} € (${anzahlProdukte} Produkte)\\n`;\n  }\n\n  text += `\\n`;\n}\n\ntext += `${'='.repeat(50)}\\n`;\ntext += `✓ günstigster = bester Preis im Vergleich aller Läden\\n`;\ntext += `Ohne ✓: liegt max. 20% über dem günstigsten Preis\\n`;\ntext += `Preise als Vergleichspreis pro kg/L wo verfügbar\\n`;\n\nreturn [{ json: { text, filename: 'einkaufslisten_' + new Date().toISOString().slice(0,10) + '.txt' } }];"
+        "jsCode": "// Plaintext Einkaufslisten mit Stichpunkten generieren\nconst läden = $input.all();\nconst datum = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });\n\nlet text = `EINKAUFSLISTEN – ${datum}\\n`;\ntext += `${'='.repeat(37)}\\n\\n`;\n\nfor (const item of läden) {\n  const { laden, produkte, gesamtGeschätzt, anzahlProdukte } = item.json;\n\n  text += `${laden.toUpperCase()}\\n`;\n  text += `${'-'.repeat(laden.length)}\\n`;\n\n  if (produkte.length === 0) {\n    text += `  (keine Produkte diese Woche)\\n`;\n  } else {\n    // Nach Kategorie gruppieren\n    const nachKategorie = {};\n    for (const p of produkte) {\n      if (!nachKategorie[p.kategorie]) nachKategorie[p.kategorie] = [];\n      nachKategorie[p.kategorie].push(p);\n    }\n\n    for (const [kat, prods] of Object.entries(nachKategorie)) {\n      text += `\\n  [${kat.toUpperCase()}]\\n`;\n      for (const p of prods) {\n        const fmt = s => (s || '').trim().replace(/\\s+(€|kg|l|g|ml)/gi, '$1');\n        const info = (p.sellingSize && p.paketpreisDisplay)\n          ? ` (${fmt(p.sellingSize)}/${fmt(p.paketpreisDisplay)})`\n          : p.sellingSize ? ` (${fmt(p.sellingSize)})` : '';\n        const preisText = p.comparisonDisplay\n          ? fmt(p.comparisonDisplay)\n          : p.preis ? `${Number(p.preis).toFixed(2).replace('.', ',')}€` : 'Preis unbekannt';\n        text += `  • ${p.produkt}${info} – ${preisText}\\n`;\n      }\n    }\n\n  }\n\n  text += `\\n`;\n}\n\ntext += `${'='.repeat(37)}\\n`;\ntext += `Preise pro kg/L\\n`;\n\nreturn [{ json: { text: '<pre>' + text + '</pre>', filename: 'einkaufslisten_' + new Date().toISOString().slice(0,10) + '.txt' } }];"
       },
       "id": "html-generieren",
       "name": "Plaintext Einkaufslisten generieren",
       "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         2120,
         400
@@ -154,10 +116,10 @@
         "authentication": "oAuth2",
         "resource": "message",
         "operation": "sendMessage",
-        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
-        "text": "=📋 *Einkaufslisten diese Woche*\n\n{{ $('Einkaufslisten pro Laden').all().map(l => `*${l.json.laden}*: ${l.json.anzahlProdukte} Produkte, ca. ${l.json.gesamtGeschätzt} €`).join('\\n') }}\n\nDetaillierte Liste per E-Mail verschickt.",
+        "chatId": "7461331112",
+        "text": "={{ $input.first().json.text }}",
         "additionalFields": {
-          "parse_mode": "Markdown"
+          "parse_mode": "HTML"
         }
       },
       "id": "telegram-benachrichtigung",
@@ -206,7 +168,8 @@
         720,
         300
       ],
-      "continueOnFail": true
+      "continueOnFail": true,
+      "disabled": true
     },
     {
       "parameters": {
@@ -216,7 +179,7 @@
           "parameters": [
             {
               "name": "User-Agent",
-              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+              "value": "Mozilla/5.0 (X11; Linux x86_64; rv:149.0) Gecko/20100101 Firefox/149.0"
             },
             {
               "name": "Accept",
@@ -225,11 +188,39 @@
             {
               "name": "Accept-Language",
               "value": "de-DE,de;q=0.9"
+            },
+            {
+              "name": "Cache-Control",
+              "value": "no-cache"
+            },
+            {
+              "name": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "name": "Sec-Fetch-Dest",
+              "value": "document"
+            },
+            {
+              "name": "Sec-Fetch-Mode",
+              "value": "navigate"
+            },
+            {
+              "name": "Sec-Fetch-Site",
+              "value": "none"
+            },
+            {
+              "name": "Sec-Fetch-User",
+              "value": "?1"
+            },
+            {
+              "name": "Upgrade-Insecure-Requests",
+              "value": "1"
             }
           ]
         },
         "options": {
-          "timeout": 15000,
+          "timeout": 30000,
           "response": {
             "response": {
               "responseFormat": "text"
@@ -249,44 +240,18 @@
     },
     {
       "parameters": {
-        "jsCode": "// EDEKA HTML parsen und Angebote extrahieren\nconst produktliste = $('Produktliste').all().map(p => p.json);\nconst html = $input.first().json.data || $input.first().json.body || '';\n\n// Angebote aus HTML extrahieren\n// EDEKA-Struktur: h2/h3 mit Produktname, dann Preis-Div, dann Beschreibungstext\nconst angebote = [];\n\n// Regex für Angebot-Blöcke: Titel + Preis + Beschreibung\nconst angebotsBlocks = html.matchAll(\n  /###?\\s*Angebot:\\s*([^\\n]+)\\n[\\s\\S]*?(?:\\*\\*Gültig ab ([^*]+)\\*\\*)?\\s*[\\s\\S]*?(?:\\*\\*[-\\d]+\\s*%\\*\\*)?\\s*([\\d]+)\\.\\s*([\\d]+)\\s*([\\s\\S]*?)(?=###?\\s*Angebot:|$)/gi\n);\n\nfor (const match of angebotsBlocks) {\n  const name = match[1]?.trim() || '';\n  const gueltigAb = match[2]?.trim() || '';\n  const euro = parseInt(match[3] || '0');\n  const cent = parseInt(match[4] || '0');\n  const beschreibung = match[5]?.replace(/\\n+/g, ' ').trim().slice(0, 200) || '';\n\n  // Grundpreis extrahieren (z.B. \"1kg = € 3,73\")\n  const grundpreisMatch = beschreibung.match(/1kg\\s*=\\s*[€€]\\s*([\\d,]+)/);\n  const grundpreis = grundpreisMatch\n    ? parseFloat(grundpreisMatch[1].replace(',', '.'))\n    : null;\n\n  if (name && (euro > 0 || cent > 0)) {\n    angebote.push({\n      titel: name,\n      preis: euro + cent / 100,\n      grundpreis,\n      beschreibung: beschreibung.slice(0, 150),\n      gueltigAb,\n      laden: 'EDEKA Schwindt'\n    });\n  }\n}\n\n// Produkte mit Angeboten matchen\nconst ergebnisse = [];\n\nfunction normalize(s) {\n    return s.toLowerCase()\n      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')\n      .replace(/Ä/g, 'ae').replace(/Ö/g, 'oe').replace(/Ü/g, 'ue')\n      .replace(/ß/g, 'ss').replace(/[()\\-\\/]/g, ' ');\n  }\n  for (const produkt of produktliste) {\n  const suchwoerter = normalize(produkt.name).split(' ').filter(w => w.length > 2);\n\n  const treffer = angebote.filter(a => {\n    const titel = normalize(a.titel);\n    return suchwoerter.some(w => titel.includes(w));\n  });\n\n  for (const t of treffer) {\n    ergebnisse.push({\n      produkt: produkt.name,\n      kategorie: produkt.kategorie,\n      einheit: produkt.einheit,\n      menge: produkt.menge,\n      laden: 'EDEKA Schwindt',\n      angebotTitel: t.titel,\n      preis: t.preis,\n      grundpreis: t.grundpreis,\n      angebotPreis: t.preis,\n      beschreibung: t.beschreibung,\n      gueltigAb: t.gueltigAb,\n      istAngebot: true\n    });\n  }\n\n  if (treffer.length === 0) {\n    ergebnisse.push({\n      produkt: produkt.name,\n      kategorie: produkt.kategorie,\n      einheit: produkt.einheit,\n      menge: produkt.menge,\n      laden: 'EDEKA Schwindt',\n      angebotTitel: null,\n      preis: null,\n      grundpreis: null,\n      angebotPreis: null,\n      beschreibung: null,\n      gueltigAb: null,\n      istAngebot: false\n    });\n  }\n}\n\nreturn ergebnisse.map(e => ({ json: e }));"
+        "jsCode": "const produktliste = $('Produktliste').all().map(p => p.json);\nconst html = $input.first().json.data || $input.first().json.body || '';\n\nconst artikelBlocks = [...html.matchAll(/<article[^>]*>(.*?)<\\/article>/gs)].map(m => m[1]);\n\nconst angebote = [];\nfor (const block of artikelBlocks) {\n  const nameMatch = block.match(/<span[^>]*sr-only[^>]*>.*?<\\/span>\\s*([\\s\\S]*?)\\s*<\\/a>/);\n  const preisMatch = block.match(/(\\d+)[,\\.](\\d{2})\\s*€/);\n  if (!nameMatch || !preisMatch) continue;\n  const titel = nameMatch[1].replace(/<[^>]+>/g, '').trim();\n  const preis = parseFloat(preisMatch[1] + '.' + preisMatch[2]);\n  const grundpreisMatch = block.match(/\\(1\\s*kg\\s*=\\s*[€$]\\s*([\\d,.]+)\\)/);\n  const grundpreis = grundpreisMatch ? parseFloat(grundpreisMatch[1].replace(',', '.')) : null;\n  const plainText = block.replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ');\n  const sizeMatch = plainText.match(/(\\d+[\\s,]*(?:g|kg|ml|l|cl|Stück)[^,)]*),?\\s*\\(1\\s*kg/i);\n  const sellingSize = sizeMatch ? sizeMatch[1].trim() : null;\n  if (titel && preis > 0) angebote.push({ titel, preis, grundpreis, sellingSize });\n}\n\nfunction normalize(s) {\n  return s.toLowerCase()\n    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')\n    .replace(/ß/g, 'ss').replace(/[-()\\\\\\/]/g, ' ');\n}\nfunction levenshtein(a, b) {\n  const m = a.length, n = b.length;\n  const dp = Array.from({length: m+1}, (_, i) =>\n    Array.from({length: n+1}, (_, j) => i === 0 ? j : j === 0 ? i : 0));\n  for (let i = 1; i <= m; i++)\n    for (let j = 1; j <= n; j++)\n      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);\n  return dp[m][n];\n}\nfunction fuzzyMatch(suchwort, text) {\n  const woerter = text.split(' ').filter(w => w.length > 0);\n  const schwelle = Math.max(1, Math.floor(suchwort.length * 0.20));\n  return woerter.some(w => levenshtein(suchwort, w) <= schwelle || w.includes(suchwort));\n}\n\nconst STOPWOERTER = new Set(['mini', 'maxi', 'mega', 'bio', 'neue', 'frisch', 'extra', 'plus', 'super', 'klein', 'gross', 'light']);\nconst ergebnisse = [];\n\nfor (const produkt of produktliste) {\n  const suchwoerter = normalize(produkt.name).split(' ').filter(w => w.length > 3 && !STOPWOERTER.has(w));\n  const treffer = angebote.filter(a => {\n    const titel = normalize(a.titel.split(',')[0]);\n    return suchwoerter.some(w => fuzzyMatch(w, titel));\n  });\n  const bester = treffer.length === 0 ? null : treffer.reduce((b, t) => {\n    if (t.preis < b.preis) return t;\n    if (t.preis === b.preis && t.grundpreis && !b.grundpreis) return t;\n    return b;\n  });\n  if (bester) {\n    const fmt2 = n => n.toFixed(2).replace('.', ',');\n    const compDisplay = bester.grundpreis ? fmt2(bester.grundpreis) + '\\u00a0\\u20ac/1\\u00a0kg' : null;\n    ergebnisse.push({\n      produkt: produkt.name, kategorie: produkt.kategorie,\n      einheit: produkt.einheit, menge: produkt.menge,\n      laden: 'EDEKA Schwindt',\n      angebotTitel: bester.titel,\n      preis: bester.grundpreis ?? bester.preis,\n      vergleichseinheit: bester.grundpreis ? '1 kg' : null,\n      comparisonDisplay: compDisplay,\n      paketpreis: bester.preis, paketpreisDisplay: fmt2(bester.preis) + '\\u00a0\\u20ac',\n      sellingSize: bester.sellingSize ?? null, istAngebot: true\n    });\n  }\n}\n\nreturn ergebnisse.map(e => ({ json: e }));"
       },
       "id": "edeka-filtern",
       "name": "EDEKA Angebote parsen & filtern",
       "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         720,
         500
       ],
       "continueOnFail": true,
       "notes": "Parsed das EDEKA-HTML. Extrahiert Produktname, Aktionspreis und Grundpreis (€/kg). Gültig ab-Datum wird mitgeführt."
-    },
-    {
-      "parameters": {
-        "jsCode": "// Aldi Angebote – dynamische Paginierung\n// Liest totalCount aus erstem Response und holt alle Seiten automatisch\nconst produktliste = $('Produktliste').all().map(p => p.json);\n\nconst BASE_URL = 'https://api.aldi-sued.de/v3/product-search';\nconst PARAMS = new URLSearchParams({\n  currency: 'EUR',\n  serviceType: 'walk-in',\n  categoryKey: '1588161426582123',\n  servicePoint: 'B441',\n  limit: '60'\n});\n\nasync function fetchSeite(offset) {\n  PARAMS.set('offset', String(offset));\n  const res = await fetch(`${BASE_URL}?${PARAMS.toString()}`);\n  if (!res.ok) throw new Error(`Aldi API Fehler: ${res.status}`);\n  return res.json();\n}\n\n// Erste Seite holen um totalCount zu ermitteln\nconst ersteSeite = await fetchSeite(0);\nconst totalCount = ersteSeite?.meta?.pagination?.totalCount || 0;\nlet alleAngebote = ersteSeite?.data || [];\n\n// Weitere Seiten holen falls nötig\nconst weitereOffsets = [];\nfor (let offset = 60; offset < totalCount; offset += 60) {\n  weitereOffsets.push(offset);\n}\n\nfor (const offset of weitereOffsets) {\n  const seite = await fetchSeite(offset);\n  alleAngebote = alleAngebote.concat(seite?.data || []);\n}\n\n// Produkte matchen\nconst ergebnisse = [];\n\nfunction normalize(s) {\n    return s.toLowerCase()\n      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')\n      .replace(/Ä/g, 'ae').replace(/Ö/g, 'oe').replace(/Ü/g, 'ue')\n      .replace(/ß/g, 'ss').replace(/[()\\-\\/]/g, ' ');\n  }\n  for (const produkt of produktliste) {\n  const suchwoerter = normalize(produkt.name).split(' ').filter(w => w.length > 2);\n\n  const treffer = alleAngebote.filter(a => {\n    const titel = normalize(a.name || '');\n    const marke = normalize(a.brandName || '');\n    return suchwoerter.some(w => titel.includes(w) || marke.includes(w));\n  });\n\n  for (const t of treffer) {\n    const compRaw = t.price?.comparisonDisplay || '';\n    const compMatch = compRaw.match(/([\\d,]+)\\s*[€$]/);\n    const preisProEinheit = compMatch\n      ? parseFloat(compMatch[1].replace(',', '.'))\n      : null;\n\n    const einheitMatch = compRaw.match(/\\/\\s*(\\d+\\s*(?:kg|l|ml|g|stk|st))/i);\n    const vergleichseinheit = einheitMatch ? einheitMatch[1].trim() : null;\n\n    const paketpreisCent = t.price?.amountRelevant ?? null;\n    const paketpreisEuro = paketpreisCent !== null ? paketpreisCent / 100 : null;\n    const paketpreisDisplay = t.price?.amountRelevantDisplay || null;\n\n    ergebnisse.push({\n      produkt: produkt.name,\n      kategorie: produkt.kategorie,\n      einheit: produkt.einheit,\n      menge: produkt.menge,\n      laden: 'Aldi Süd',\n      angebotTitel: `${t.brandName ? t.brandName + ' ' : ''}${t.name}`,\n      preis: preisProEinheit,\n      vergleichseinheit,\n      comparisonDisplay: compRaw,\n      paketpreis: paketpreisEuro,\n      paketpreisDisplay,\n      sellingSize: t.sellingSize || null,\n      istAngebot: true\n    });\n  }\n\n  if (treffer.length === 0) {\n    ergebnisse.push({\n      produkt: produkt.name,\n      kategorie: produkt.kategorie,\n      einheit: produkt.einheit,\n      menge: produkt.menge,\n      laden: 'Aldi Süd',\n      angebotTitel: null,\n      preis: null,\n      vergleichseinheit: null,\n      comparisonDisplay: null,\n      paketpreis: null,\n      paketpreisDisplay: null,\n      sellingSize: null,\n      istAngebot: false\n    });\n  }\n}\n\nreturn ergebnisse.map(e => ({ json: e }));"
-      },
-      "id": "aldi-filtern",
-      "name": "Aldi Angebote laden & filtern",
-      "type": "n8n-nodes-base.code",
-      "position": [
-        480,
-        700
-      ],
-      "continueOnFail": true,
-      "notes": "Holt totalCount aus erstem API-Response und paginiert automatisch (je 60 Produkte) bis alle Angebote geladen sind. Funktioniert auch bei 150+ Produkten."
-    },
-    {
-      "parameters": {
-        "mode": "append"
-      },
-      "id": "merge-kaufda-rewe",
-      "name": "Merge Kaufda & REWE",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 1,
-      "position": [
-        960,
-        200
-      ]
     },
     {
       "parameters": {
@@ -313,6 +278,20 @@
         1160,
         400
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const produktliste = $('Produktliste').all().map(p => p.json);\n\nconst BASE_URL = 'https://api.aldi-sued.de/v3/product-search';\nconst BASE_QS = { currency: 'EUR', serviceType: 'walk-in', categoryKey: '1588161426582123', servicePoint: 'B441', limit: 60 };\n\nconst [seite1, seite2] = await Promise.all([\n  this.helpers.httpRequest({ method: 'GET', url: BASE_URL, qs: { ...BASE_QS, offset: 0 } }),\n  this.helpers.httpRequest({ method: 'GET', url: BASE_URL, qs: { ...BASE_QS, offset: 60 } })\n]);\n\nconst alleAngebote = [\n  ...(seite1?.data || []),\n  ...(seite2?.data || [])\n];\n\nconst ergebnisse = [];\n\nfunction normalize(s) {\n  return s.toLowerCase()\n    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')\n    .replace(/Ä/g, 'ae').replace(/Ö/g, 'oe').replace(/Ü/g, 'ue')\n    .replace(/ß/g, 'ss').replace(/[-()\\\/]/g, ' ');\n}\n\nfunction levenshtein(a, b) {\n  const m = a.length, n = b.length;\n  const dp = Array.from({length: m + 1}, (_, i) =>\n    Array.from({length: n + 1}, (_, j) => i === 0 ? j : j === 0 ? i : 0)\n  );\n  for (let i = 1; i <= m; i++)\n    for (let j = 1; j <= n; j++)\n      dp[i][j] = a[i-1] === b[j-1]\n        ? dp[i-1][j-1]\n        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);\n  return dp[m][n];\n}\n\nfunction fuzzyMatch(suchwort, text) {\n  const woerter = text.split(' ').filter(w => w.length > 0);\n  const schwelle = Math.max(1, Math.floor(suchwort.length * 0.20));\n  return woerter.some(w => levenshtein(suchwort, w) <= schwelle || w.includes(suchwort));\n}\n\nfor (const produkt of produktliste) {\n  const STOPWOERTER = new Set(['mini', 'maxi', 'mega', 'bio', 'neue', 'frisch', 'extra', 'plus', 'super', 'klein', 'gross', 'light']);\n  const suchwoerter = normalize(produkt.name).split(' ').filter(w => w.length > 3 && !STOPWOERTER.has(w));\n\n  const treffer = alleAngebote.filter(a => {\n    const titel = normalize((a.name || '').split(',')[0]);\n    const marke = normalize(a.brandName || '');\n    return suchwoerter.some(w => fuzzyMatch(w, titel) || fuzzyMatch(w, marke));\n  });\n\n  const besterTreffer = treffer.length === 0 ? [] : [treffer.reduce((best, t) => {\n    const preis = (t.price?.amountRelevant ?? Infinity);\n    const bestPreis = (best.price?.amountRelevant ?? Infinity);\n    return preis < bestPreis ? t : best;\n  })];\n\n  for (const t of besterTreffer) {\n    const compRaw = t.price?.comparisonDisplay || '';\n    const compMatch = compRaw.match(/([\\d,]+)\\s*[€$]/);\n    const preisProEinheit = compMatch ? parseFloat(compMatch[1].replace(',', '.')) : null;\n    const einheitMatch = compRaw.match(/\\/\\s*(\\d+\\s*(?:kg|l|ml|g|stk|st))/i);\n    const vergleichseinheit = einheitMatch ? einheitMatch[1].trim() : null;\n    const paketpreisCent = t.price?.amountRelevant ?? null;\n    const paketpreisEuro = paketpreisCent !== null ? paketpreisCent / 100 : null;\n\n    ergebnisse.push({\n      produkt: produkt.name, kategorie: produkt.kategorie,\n      einheit: produkt.einheit, menge: produkt.menge,\n      laden: 'Aldi Süd',\n      angebotTitel: `${t.brandName ? t.brandName + ' ' : ''}${t.name}`,\n      preis: preisProEinheit, vergleichseinheit, comparisonDisplay: compRaw,\n      paketpreis: paketpreisEuro, paketpreisDisplay: t.price?.amountRelevantDisplay || null,\n      sellingSize: t.sellingSize || null, istAngebot: true\n    });\n  }\n\n  if (treffer.length === 0) {\n    ergebnisse.push({\n      produkt: produkt.name, kategorie: produkt.kategorie,\n      einheit: produkt.einheit, menge: produkt.menge,\n      laden: 'Aldi Süd',\n      angebotTitel: null, preis: null, vergleichseinheit: null,\n      comparisonDisplay: null, paketpreis: null, paketpreisDisplay: null,\n      sellingSize: null, istAngebot: false\n    });\n  }\n}\n\nreturn ergebnisse.filter(e => e.istAngebot).map(e => ({ json: e }));"
+      },
+      "id": "aldi-filtern",
+      "name": "Aldi Angebote laden & filtern",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        700
+      ],
+      "continueOnFail": true
     }
   ],
   "connections": {
@@ -321,17 +300,6 @@
         [
           {
             "node": "Produktliste",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Kaufda Angebotssuche": {
-      "main": [
-        [
-          {
-            "node": "Merge Kaufda & REWE",
             "type": "main",
             "index": 0
           }
@@ -386,9 +354,9 @@
       "main": [
         [
           {
-            "node": "Merge Kaufda & REWE",
+            "node": "Alle Angebote mergen",
             "type": "main",
-            "index": 1
+            "index": 0
           }
         ]
       ]
@@ -426,28 +394,6 @@
         ]
       ]
     },
-    "Aldi Angebote laden & filtern": {
-      "main": [
-        [
-          {
-            "node": "Merge EDEKA & Aldi",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Merge Kaufda & REWE": {
-      "main": [
-        [
-          {
-            "node": "Alle Angebote mergen",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Merge EDEKA & Aldi": {
       "main": [
         [
@@ -474,11 +420,6 @@
       "main": [
         [
           {
-            "node": "Kaufda Angebotssuche",
-            "type": "main",
-            "index": 0
-          },
-          {
             "node": "REWE Angebote laden",
             "type": "main",
             "index": 0
@@ -492,6 +433,17 @@
             "node": "Aldi Angebote laden & filtern",
             "type": "main",
             "index": 0
+          }
+        ]
+      ]
+    },
+    "Aldi Angebote laden & filtern": {
+      "main": [
+        [
+          {
+            "node": "Merge EDEKA & Aldi",
+            "type": "main",
+            "index": 1
           }
         ]
       ]
