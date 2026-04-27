@@ -27,7 +27,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Extract the recruiter contact from the email signature. Return ONLY a JSON array in exactly this format:\n[{\"fullName\": \"Max Mustermann\", \"mobilePhone\": \"+491701234567\", \"landlinePhone\": \"+49301234567\", \"email\": \"max@example.com\"}]\n\nRules:\n- fullName: full name of the sender (NOT Atanas Alexandrov)\n- mobilePhone: mobile number, empty string if none\n- landlinePhone: office or landline number, empty string if none. Do NOT use Fax numbers.\n- email: must contain @, no website URLs, empty string if none\n- Return [] if no valid person contact with phone number found\n\nEmail:\n{{ $json.textPlain }}",
+        "text": "=Extract the recruiter contact from the email signature. Return ONLY a JSON array in exactly this format:\n[{\"fullName\": \"FIRSTNAME LASTNAME\", \"mobilePhone\": \"+49MOBILE\", \"landlinePhone\": \"+49LANDLINE\", \"email\": \"name@domain.com\"}]\n\nRules:\n- fullName: full name of the sender (NOT Atanas Alexandrov)\n- mobilePhone: mobile number, empty string if none\n- landlinePhone: office or landline number, empty string if none. Do NOT use Fax numbers.\n- email: must contain @, no website URLs, empty string if none\n- Return [] if no valid person contact with phone number found\n\nEmail:\n{{ $json.textPlain }}",
         "messages": {
           "messageValues": [
             {
