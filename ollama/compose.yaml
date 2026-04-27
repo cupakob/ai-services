@@ -1,6 +1,10 @@
 services:
   ollama:
     image: ollama/ollama
+    deploy:
+      resources:
+        limits:
+          memory: 16384M
     container_name: ollama
     restart: always
     environment:
@@ -17,7 +21,11 @@ services:
       - ./ollama_data:/root/.ollama
 
   webui:
-    image: ghcr.io/open-webui/open-webui:latest
+    image: ghcr.io/open-webui/open-webui
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
     container_name: ollama_webui
     restart: always
     ports:
@@ -30,7 +38,11 @@ services:
       - ollama
 
   searxng:
-    image: searxng/searxng:latest
+    image: searxng/searxng
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     container_name: searxng
     restart: unless-stopped
     ports:
@@ -43,7 +55,7 @@ services:
       -d
 
   watchtower:
-    image: containrrr/watchtower:latest
+    image: containrrr/watchtower
     container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
