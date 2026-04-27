@@ -10,7 +10,7 @@ services:
     ports:
       - "5678:5678"
     volumes:
-      - n8n_data:/home/node/.n8n
+      - ./n8n_data:/home/node/.n8n
       - /etc/localtime:/etc/localtime:ro
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
