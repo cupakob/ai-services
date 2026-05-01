@@ -173,74 +173,22 @@
     },
     {
       "parameters": {
-        "url": "https://www.edeka.de/maerkte/073519/angebote/",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "User-Agent",
-              "value": "Mozilla/5.0 (X11; Linux x86_64; rv:149.0) Gecko/20100101 Firefox/149.0"
-            },
-            {
-              "name": "Accept",
-              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-            },
-            {
-              "name": "Accept-Language",
-              "value": "de-DE,de;q=0.9"
-            },
-            {
-              "name": "Cache-Control",
-              "value": "no-cache"
-            },
-            {
-              "name": "Pragma",
-              "value": "no-cache"
-            },
-            {
-              "name": "Sec-Fetch-Dest",
-              "value": "document"
-            },
-            {
-              "name": "Sec-Fetch-Mode",
-              "value": "navigate"
-            },
-            {
-              "name": "Sec-Fetch-Site",
-              "value": "none"
-            },
-            {
-              "name": "Sec-Fetch-User",
-              "value": "?1"
-            },
-            {
-              "name": "Upgrade-Insecure-Requests",
-              "value": "1"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 30000,
-          "response": {
-            "response": {
-              "responseFormat": "text"
-            }
-          }
-        }
+        "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'http://playwright:3001/fetch',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({\n    url: 'https://www.edeka.de/maerkte/073519/angebote/',\n    waitForSelector: 'article',\n    timeout: 45000\n  })\n});\nreturn [{ json: response }];"
       },
       "id": "edeka-scrape",
       "name": "EDEKA Angebote laden",
-      "type": "n8n-nodes-base.httpRequest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         480,
         500
       ],
       "continueOnFail": true,
-      "notes": "Markt-ID 073519 = EDEKA Schwindt, Hauptstr. 283, Alfter-Witterschlick. Direkt aus der URL."
+      "notes": "Lädt EDEKA-Angebote via Playwright (echter Chromium) – umgeht Bot-Schutz ohne Cookies."
     },
     {
       "parameters": {
-        "jsCode": "const produktliste = $('Produktliste').all().map(p => p.json);\nconst html = $input.first().json.data || $input.first().json.body || '';\n\nconst artikelBlocks = [...html.matchAll(/<article[^>]*>(.*?)<\\/article>/gs)].map(m => m[1]);\n\nconst angebote = [];\nfor (const block of artikelBlocks) {\n  const nameMatch = block.match(/<span[^>]*sr-only[^>]*>.*?<\\/span>\\s*([\\s\\S]*?)\\s*<\\/a>/);\n  const preisMatch = block.match(/(\\d+)[,\\.](\\d{2})\\s*€/);\n  if (!nameMatch || !preisMatch) continue;\n  const titel = nameMatch[1].replace(/<[^>]+>/g, '').trim();\n  const preis = parseFloat(preisMatch[1] + '.' + preisMatch[2]);\n  const grundpreisMatch = block.match(/\\(1\\s*kg\\s*=\\s*[€$]\\s*([\\d,.]+)\\)/);\n  const grundpreis = grundpreisMatch ? parseFloat(grundpreisMatch[1].replace(',', '.')) : null;\n  const plainText = block.replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ');\n  const sizeMatch = plainText.match(/(\\d+[\\s,]*(?:g|kg|ml|l|cl|Stück)[^,)]*),?\\s*\\(1\\s*kg/i);\n  const sellingSize = sizeMatch ? sizeMatch[1].trim() : null;\n  if (titel && preis > 0) angebote.push({ titel, preis, grundpreis, sellingSize });\n}\n\nfunction normalize(s) {\n  return s.toLowerCase()\n    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')\n    .replace(/ß/g, 'ss').replace(/[-()\\\\\\/]/g, ' ');\n}\nfunction levenshtein(a, b) {\n  const m = a.length, n = b.length;\n  const dp = Array.from({length: m+1}, (_, i) =>\n    Array.from({length: n+1}, (_, j) => i === 0 ? j : j === 0 ? i : 0));\n  for (let i = 1; i <= m; i++)\n    for (let j = 1; j <= n; j++)\n      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);\n  return dp[m][n];\n}\nfunction fuzzyMatch(suchwort, text) {\n  const woerter = text.split(' ').filter(w => w.length > 0);\n  const schwelle = Math.max(1, Math.floor(suchwort.length * 0.20));\n  return woerter.some(w => levenshtein(suchwort, w) <= schwelle || w.includes(suchwort));\n}\n\nconst STOPWOERTER = new Set(['mini', 'maxi', 'mega', 'bio', 'neue', 'frisch', 'extra', 'plus', 'super', 'klein', 'gross', 'light']);\nconst ergebnisse = [];\n\nfor (const produkt of produktliste) {\n  const suchwoerter = normalize(produkt.name).split(' ').filter(w => w.length > 3 && !STOPWOERTER.has(w));\n  const treffer = angebote.filter(a => {\n    const titel = normalize(a.titel.split(',')[0]);\n    return suchwoerter.some(w => fuzzyMatch(w, titel));\n  });\n  const bester = treffer.length === 0 ? null : treffer.reduce((b, t) => {\n    if (t.preis < b.preis) return t;\n    if (t.preis === b.preis && t.grundpreis && !b.grundpreis) return t;\n    return b;\n  });\n  if (bester) {\n    const fmt2 = n => n.toFixed(2).replace('.', ',');\n    const compDisplay = bester.grundpreis ? fmt2(bester.grundpreis) + '\\u00a0\\u20ac/1\\u00a0kg' : null;\n    ergebnisse.push({\n      produkt: produkt.name, kategorie: produkt.kategorie,\n      einheit: produkt.einheit, menge: produkt.menge,\n      laden: 'EDEKA Schwindt',\n      angebotTitel: bester.titel,\n      preis: bester.grundpreis ?? bester.preis,\n      vergleichseinheit: bester.grundpreis ? '1 kg' : null,\n      comparisonDisplay: compDisplay,\n      paketpreis: bester.preis, paketpreisDisplay: fmt2(bester.preis) + '\\u00a0\\u20ac',\n      sellingSize: bester.sellingSize ?? null, istAngebot: true\n    });\n  }\n}\n\nreturn ergebnisse.map(e => ({ json: e }));"
+        "jsCode": "const produktliste = $('Produktliste').all().map(p => p.json);\nconst html = $input.first().json.html || '';\n\nconst artikelBlocks = [...html.matchAll(/<article[^>]*>(.*?)<\\/article>/gs)].map(m => m[1]);\n\nconst angebote = [];\nfor (const block of artikelBlocks) {\n  const nameMatch = block.match(/<span[^>]*sr-only[^>]*>.*?<\\/span>\\s*([\\s\\S]*?)\\s*<\\/a>/);\n  const preisMatch = block.match(/(\\d+)[,\\.](\\d{2})\\s*€/);\n  if (!nameMatch || !preisMatch) continue;\n  const titel = nameMatch[1].replace(/<[^>]+>/g, '').trim();\n  const preis = parseFloat(preisMatch[1] + '.' + preisMatch[2]);\n  const grundpreisMatch = block.match(/\\(1\\s*kg\\s*=\\s*[€$]\\s*([\\d,.]+)\\)/);\n  const grundpreis = grundpreisMatch ? parseFloat(grundpreisMatch[1].replace(',', '.')) : null;\n  const plainText = block.replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ');\n  const sizeMatch = plainText.match(/(\\d+[\\s,]*(?:g|kg|ml|l|cl|Stück)[^,)]*),?\\s*\\(1\\s*kg/i);\n  const sellingSize = sizeMatch ? sizeMatch[1].trim() : null;\n  if (titel && preis > 0) angebote.push({ titel, preis, grundpreis, sellingSize });\n}\n\nfunction normalize(s) {\n  return s.toLowerCase()\n    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')\n    .replace(/ß/g, 'ss').replace(/[-()\\\\\\/]/g, ' ');\n}\nfunction levenshtein(a, b) {\n  const m = a.length, n = b.length;\n  const dp = Array.from({length: m+1}, (_, i) =>\n    Array.from({length: n+1}, (_, j) => i === 0 ? j : j === 0 ? i : 0));\n  for (let i = 1; i <= m; i++)\n    for (let j = 1; j <= n; j++)\n      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);\n  return dp[m][n];\n}\nfunction fuzzyMatch(suchwort, text) {\n  const woerter = text.split(' ').filter(w => w.length > 0);\n  const schwelle = Math.max(1, Math.floor(suchwort.length * 0.20));\n  return woerter.some(w => levenshtein(suchwort, w) <= schwelle || w.includes(suchwort));\n}\n\nconst STOPWOERTER = new Set(['mini', 'maxi', 'mega', 'bio', 'neue', 'frisch', 'extra', 'plus', 'super', 'klein', 'gross', 'light']);\nconst ergebnisse = [];\n\nfor (const produkt of produktliste) {\n  const suchwoerter = normalize(produkt.name).split(' ').filter(w => w.length > 3 && !STOPWOERTER.has(w));\n  const treffer = angebote.filter(a => {\n    const titel = normalize(a.titel.split(',')[0]);\n    return suchwoerter.some(w => fuzzyMatch(w, titel));\n  });\n  const bester = treffer.length === 0 ? null : treffer.reduce((b, t) => {\n    if (t.preis < b.preis) return t;\n    if (t.preis === b.preis && t.grundpreis && !b.grundpreis) return t;\n    return b;\n  });\n  if (bester) {\n    const fmt2 = n => n.toFixed(2).replace('.', ',');\n    const compDisplay = bester.grundpreis ? fmt2(bester.grundpreis) + '\\u00a0\\u20ac/1\\u00a0kg' : null;\n    ergebnisse.push({\n      produkt: produkt.name, kategorie: produkt.kategorie,\n      einheit: produkt.einheit, menge: produkt.menge,\n      laden: 'EDEKA Schwindt',\n      angebotTitel: bester.titel,\n      preis: bester.grundpreis ?? bester.preis,\n      vergleichseinheit: bester.grundpreis ? '1 kg' : null,\n      comparisonDisplay: compDisplay,\n      paketpreis: bester.preis, paketpreisDisplay: fmt2(bester.preis) + '\\u00a0\\u20ac',\n      sellingSize: bester.sellingSize ?? null, istAngebot: true\n    });\n  }\n}\n\nreturn ergebnisse.map(e => ({ json: e }));"
       },
       "id": "edeka-filtern",
       "name": "EDEKA Angebote parsen & filtern",
