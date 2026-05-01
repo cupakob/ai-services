@@ -42,13 +42,41 @@ app.post('/fetch', async (req, res) => {
     const { url, waitForSelector, timeout: reqTimeout = 30000 } = req.body;
     if (!url) return res.status(400).json({ error: 'URL required' });
 
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      locale: 'de-DE'
+    const browser = await chromium.launch({
+      headless: true,
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu',
+      ]
     });
-    const page = await context.newPage();
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+      locale: 'de-DE',
+      viewport: { width: 1920, height: 1080 },
+      extraHTTPHeaders: {
+        'Accept-Language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
+        'sec-ch-ua': '"Chromium";v="147", "Not.A/Brand";v="8"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Linux"',
+      }
+    });
 
+    // Patch navigator to hide automation indicators
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+      Object.defineProperty(navigator, 'languages', { get: () => ['de-DE', 'de', 'en-US', 'en'] });
+      window.chrome = { runtime: {} };
+    });
+
+    const page = await context.newPage();
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: reqTimeout });
 
     // Accept cookie banners
@@ -62,12 +90,26 @@ app.post('/fetch', async (req, res) => {
       '#CybotCookiebotDialogBodyButtonAccept',
       '.js-accept-cookies'
     ];
+    let accepted = false;
     for (const sel of cookieSelectors) {
       try {
         await page.click(sel, { timeout: 2000 });
         await page.waitForTimeout(500);
+        accepted = true;
         break;
       } catch (e) { /* try next */ }
+    }
+    if (!accepted) {
+      // Fallback: click by button text (German/English consent patterns)
+      try {
+        await page.evaluate(() => {
+          const texts = ['alle akzeptieren', 'akzeptieren', 'zustimmen', 'accept all', 'alle cookies akzeptieren', 'ich stimme zu'];
+          const buttons = Array.from(document.querySelectorAll('button, a[role="button"]'));
+          const btn = buttons.find(b => texts.some(t => b.innerText.trim().toLowerCase().startsWith(t)));
+          if (btn) btn.click();
+        });
+        await page.waitForTimeout(1000);
+      } catch (e) { /* no consent dialog */ }
     }
 
     if (waitForSelector) {
