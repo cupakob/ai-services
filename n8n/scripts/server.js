@@ -194,7 +194,46 @@ app.post('/extract-kennzahlen', async (req, res) => {
       }
 
       const kennzahlen = await extractTables(kennzahlenUrl, true);
-      res.json({ success: true, kennzahlen });
+      const dividenden = await extractTables(dividendeUrl, false);
+
+      // Aktuellen Kurs von der Stock-Übersichtsseite holen
+      const baseUrl = kennzahlenUrl.replace('/kennzahlen/fundamentale-kennzahlen', '');
+      let currentPrice = null;
+      {
+        const page = await context.newPage();
+        try {
+          await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: reqTimeout });
+          currentPrice = await page.evaluate(() => {
+            // JSON-LD
+            for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
+              try {
+                const d = JSON.parse(s.textContent);
+                const p = d.price || (d.offers && d.offers.price);
+                if (p) return String(p);
+              } catch (e) {}
+            }
+            // Häufige Selektoren für Kursanzeigen
+            for (const sel of ['[data-value]', '[data-price]', '.kurs-value', '.last-price', '[class*="lastPrice"]', '[class*="stockPrice"]']) {
+              const el = document.querySelector(sel);
+              if (el) {
+                const v = el.getAttribute('data-value') || el.getAttribute('data-price') || el.innerText.trim();
+                if (v && /[\d,.]/.test(v)) return v;
+              }
+            }
+            // Tabellen-Fallback: Zeile mit Label "kurs"
+            for (const row of document.querySelectorAll('table tr')) {
+              const cells = [...row.querySelectorAll('td')];
+              if (cells.length >= 2 && /^kurs/i.test(cells[0].innerText.trim())) {
+                return cells[1].innerText.trim();
+              }
+            }
+            return null;
+          });
+        } catch (e) { /* Kurs-Extraktion fehlgeschlagen, Fallback greift */ }
+        finally { await page.close(); }
+      }
+
+      res.json({ success: true, kennzahlen, dividenden, currentPrice });
     } finally {
       await browser.close();
     }
