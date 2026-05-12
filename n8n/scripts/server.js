@@ -148,55 +148,56 @@ app.post('/extract-kennzahlen', async (req, res) => {
     const dividendeUrl = kennzahlenUrl.replace('/kennzahlen/fundamentale-kennzahlen', '/dividende');
 
     const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      locale: 'de-DE'
-    });
+    try {
+      const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        locale: 'de-DE'
+      });
 
-    const cookieSelectors = [
-      '#onetrust-accept-btn-handler', '.ot-sdk-accept-all-btn',
-      'button[data-testid="accept-all"]', '#accept-all-cookies',
-      '.cookie-accept', 'button.acceptCookies',
-      '#CybotCookiebotDialogBodyButtonAccept', '.js-accept-cookies'
-    ];
+      const cookieSelectors = [
+        '#onetrust-accept-btn-handler', '.ot-sdk-accept-all-btn',
+        'button[data-testid="accept-all"]', '#accept-all-cookies',
+        '.cookie-accept', 'button.acceptCookies',
+        '#CybotCookiebotDialogBodyButtonAccept', '.js-accept-cookies'
+      ];
 
-    async function extractTables(url, acceptCookies) {
-      const page = await context.newPage();
-      try {
-        await page.goto(url, { waitUntil: 'networkidle', timeout: reqTimeout });
-        if (acceptCookies) {
-          for (const sel of cookieSelectors) {
-            try { await page.click(sel, { timeout: 2000 }); break; } catch (e) {}
-          }
-        }
-        // Warte bis mindestens eine Tabelle geladen ist
-        try { await page.waitForSelector('table', { timeout: 8000 }); } catch (e) {}
-
-        const tables = await page.evaluate(() => {
-          const result = {};
-          document.querySelectorAll('table tr').forEach(row => {
-            const cells = Array.from(row.querySelectorAll('td, th'));
-            if (cells.length < 2) return;
-            const label = cells[0].innerText.trim().toLowerCase().replace(/\s+/g, ' ');
-            const values = cells.slice(1).map(c => c.innerText.trim());
-            const nonEmpty = values.filter(v => v !== '' && v !== '-').length;
-            if (label && nonEmpty > 0) {
-              const existing = (result[label] || []).filter(v => v !== '' && v !== '-').length;
-              if (nonEmpty > existing) result[label] = values;
+      async function extractTables(url, acceptCookies) {
+        const page = await context.newPage();
+        try {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: reqTimeout });
+          if (acceptCookies) {
+            for (const sel of cookieSelectors) {
+              try { await page.click(sel, { timeout: 2000 }); break; } catch (e) {}
             }
+          }
+          try { await page.waitForSelector('table', { timeout: 8000 }); } catch (e) {}
+
+          const tables = await page.evaluate(() => {
+            const result = {};
+            document.querySelectorAll('table tr').forEach(row => {
+              const cells = Array.from(row.querySelectorAll('td, th'));
+              if (cells.length < 2) return;
+              const label = cells[0].innerText.trim().toLowerCase().replace(/\s+/g, ' ');
+              const values = cells.slice(1).map(c => c.innerText.trim());
+              const nonEmpty = values.filter(v => v !== '' && v !== '-').length;
+              if (label && nonEmpty > 0) {
+                const existing = (result[label] || []).filter(v => v !== '' && v !== '-').length;
+                if (nonEmpty > existing) result[label] = values;
+              }
+            });
+            return result;
           });
-          return result;
-        });
-        return tables;
-      } finally {
-        await page.close();
+          return tables;
+        } finally {
+          await page.close();
+        }
       }
+
+      const kennzahlen = await extractTables(kennzahlenUrl, true);
+      res.json({ success: true, kennzahlen });
+    } finally {
+      await browser.close();
     }
-
-    const kennzahlen = await extractTables(kennzahlenUrl, true);
-
-    await browser.close();
-    res.json({ success: true, kennzahlen });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
