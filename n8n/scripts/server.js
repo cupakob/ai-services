@@ -138,6 +138,51 @@ app.post('/fetch-multi', async (req, res) => {
   }
 });
 
+// Currency detection and conversion via frankfurter.app (ECB rates)
+const rateCache = {};
+
+function detectCurrencyCode(rawStr) {
+  if (!rawStr) return null;
+  const s = String(rawStr).replace(/\xa0/g, ' ');
+  if (/HK\$|HKD/i.test(s)) return 'HKD';
+  if (/R\$|BRL/i.test(s)) return 'BRL';
+  if (/\$/.test(s)) return 'USD';
+  if (/€/.test(s)) return 'EUR';
+  if (/£/.test(s)) return 'GBP';
+  if (/¥|JPY/i.test(s)) return 'JPY';
+  if (/\bDKK\b/i.test(s)) return 'DKK';
+  if (/\bNOK\b/i.test(s)) return 'NOK';
+  if (/\bSEK\b/i.test(s)) return 'SEK';
+  if (/\bCHF\b/i.test(s)) return 'CHF';
+  if (/\bZAR\b/i.test(s)) return 'ZAR';
+  if (/\bAUD\b/i.test(s)) return 'AUD';
+  if (/\bCAD\b/i.test(s)) return 'CAD';
+  if (/\bCNY\b|\bCNH\b/i.test(s)) return 'CNY';
+  return null;
+}
+
+async function getConversionRate(fromCode, toCode) {
+  if (!fromCode || !toCode || fromCode === toCode) return 1;
+  const cacheKey = `${fromCode}_${toCode}`;
+  if (rateCache[cacheKey] && Date.now() - rateCache[cacheKey].ts < 3600000) return rateCache[cacheKey].rate;
+  const https = require('https');
+  return new Promise((resolve) => {
+    const url = `https://api.frankfurter.dev/v1/latest?from=${fromCode}&to=${toCode}`;
+    https.get(url, { headers: { 'Accept': 'application/json' } }, (res) => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => {
+        try {
+          const j = JSON.parse(d);
+          const rate = j.rates && j.rates[toCode] != null ? j.rates[toCode] : null;
+          if (rate) rateCache[cacheKey] = { rate, ts: Date.now() };
+          resolve(rate);
+        } catch (e) { resolve(null); }
+      });
+    }).on('error', () => resolve(null));
+  });
+}
+
 // Kennzahlen direkt aus ariva.de extrahieren (strukturiertes JSON, kein HTML-Parsen nötig)
 app.post('/extract-kennzahlen', async (req, res) => {
   try {
@@ -196,44 +241,48 @@ app.post('/extract-kennzahlen', async (req, res) => {
       const kennzahlen = await extractTables(kennzahlenUrl, true);
       const dividenden = await extractTables(dividendeUrl, false);
 
-      // Aktuellen Kurs von der Stock-Übersichtsseite holen
-      const baseUrl = kennzahlenUrl.replace('/kennzahlen/fundamentale-kennzahlen', '');
-      let currentPrice = null;
-      {
-        const page = await context.newPage();
-        try {
-          await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: reqTimeout });
-          currentPrice = await page.evaluate(() => {
-            // JSON-LD
-            for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
-              try {
-                const d = JSON.parse(s.textContent);
-                const p = d.price || (d.offers && d.offers.price);
-                if (p) return String(p);
-              } catch (e) {}
-            }
-            // Häufige Selektoren für Kursanzeigen
-            for (const sel of ['[data-value]', '[data-price]', '.kurs-value', '.last-price', '[class*="lastPrice"]', '[class*="stockPrice"]']) {
-              const el = document.querySelector(sel);
-              if (el) {
-                const v = el.getAttribute('data-value') || el.getAttribute('data-price') || el.innerText.trim();
-                if (v && /[\d,.]/.test(v)) return v;
-              }
-            }
-            // Tabellen-Fallback: Zeile mit Label "kurs"
-            for (const row of document.querySelectorAll('table tr')) {
-              const cells = [...row.querySelectorAll('td')];
-              if (cells.length >= 2 && /^kurs/i.test(cells[0].innerText.trim())) {
-                return cells[1].innerText.trim();
-              }
-            }
-            return null;
-          });
-        } catch (e) { /* Kurs-Extraktion fehlgeschlagen, Fallback greift */ }
-        finally { await page.close(); }
+      // Find the right price to pair with the dividend
+      // Prefer a price in the same currency as the dividend (no conversion needed)
+      function parseNumSrv(str) {
+        if (!str) return null;
+        const s = String(str).replace(/\xa0/g, '').replace(/\./g, '').replace(',', '.').replace(/[^0-9.\-]/g, '');
+        const n = parseFloat(s);
+        return isNaN(n) ? null : n;
       }
 
-      res.json({ success: true, kennzahlen, dividenden, currentPrice });
+      const divJeAktieArr = kennzahlen['dividende je aktie'] || [];
+      const divRaw = divJeAktieArr.filter(v => v && v !== '-').slice(-1)[0] || '';
+      const divCur = detectCurrencyCode(divRaw);
+
+      let nativePrice = null;
+      let conversionRate = null;
+
+      if (divCur) {
+        const schlussRaw = (dividenden['schluss vortag'] || [])[0] || '';
+        const schlussCur = detectCurrencyCode(schlussRaw);
+
+        if (schlussCur === divCur) {
+          // schluss vortag is already in the dividend currency — no conversion needed
+          conversionRate = 1;
+        } else {
+          // Scan exchange entries: [price_with_currency, change_%, ...] pattern
+          for (const values of Object.values(dividenden)) {
+            if (values.length >= 2 && String(values[1] || '').includes('%')) {
+              const cur = detectCurrencyCode(String(values[0] || ''));
+              if (cur === divCur) {
+                nativePrice = parseNumSrv(String(values[0] || ''));
+                break;
+              }
+            }
+          }
+          if (nativePrice === null) {
+            // No native-currency price found → convert dividend to schluss-vortag currency
+            conversionRate = schlussCur ? await getConversionRate(divCur, schlussCur) : null;
+          }
+        }
+      }
+
+      res.json({ success: true, kennzahlen, dividenden, nativePrice, conversionRate });
     } finally {
       await browser.close();
     }
