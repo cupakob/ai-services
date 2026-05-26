@@ -1,5 +1,11 @@
 {
+  "updatedAt": "2026-04-27T12:13:19.210Z",
+  "createdAt": "2026-04-27T08:53:20.830Z",
+  "id": "u4ZfAmZulzl24Uk4",
   "name": "email -> extract contacts",
+  "description": null,
+  "active": true,
+  "isArchived": false,
   "nodes": [
     {
       "parameters": {
@@ -12,51 +18,29 @@
       "type": "n8n-nodes-base.emailReadImap",
       "typeVersion": 2.1,
       "position": [
-        21776,
-        12464
+        1856,
+        416
       ],
-      "id": "808fa31b-bcff-4ede-90fd-2bf3d50f9bff",
+      "id": "f1247f7a-cf55-4fb1-9db4-74df584bc6b1",
       "name": "Email Trigger (IMAP)",
       "credentials": {
         "imap": {
-          "id": "vMhkI1xG5O4L10YX",
+          "id": "35ahG1FZxlFOLE3C",
           "name": "IMAP account"
         }
       }
     },
     {
       "parameters": {
-        "promptType": "define",
-        "text": "=Extract the recruiter contact from the email signature. Return ONLY a JSON array in exactly this format:\n[{\"fullName\": \"FIRSTNAME LASTNAME\", \"mobilePhone\": \"+49MOBILE\", \"landlinePhone\": \"+49LANDLINE\", \"email\": \"name@domain.com\"}]\n\nRules:\n- fullName: full name of the sender (NOT Atanas Alexandrov)\n- mobilePhone: mobile number, empty string if none\n- landlinePhone: office or landline number, empty string if none. Do NOT use Fax numbers.\n- email: must contain @, no website URLs, empty string if none\n- Return [] if no valid person contact with phone number found\n\nEmail:\n{{ $json.textPlain }}",
-        "messages": {
-          "messageValues": [
-            {
-              "message": "="
-            }
-          ]
-        },
-        "batching": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.9,
-      "position": [
-        22128,
-        12464
-      ],
-      "id": "640dcd24-4e3b-4450-9c5d-5e820ec5e0de",
-      "name": "Basic LLM Chain"
-    },
-    {
-      "parameters": {
-        "jsCode": "const items = $input.all();\n\nlet parsed = [];\ntry {\n  const raw = items[0].json;\n  let jsonString = raw.text || raw.content || '';\n\n  if (jsonString) {\n    jsonString = jsonString\n      .replace(/```(?:json)?\\s*/g, '')\n      .replace(/\\s*```/g, '')\n      .trim();\n    parsed = JSON.parse(jsonString);\n  } else if (raw.fullName || raw.name) {\n    // format:json outputs fields directly instead of as a string\n    parsed = [raw];\n  } else {\n    // Try parsing the entire output as JSON string\n    const str = JSON.stringify(raw);\n    parsed = JSON.parse(str);\n  }\n} catch(e) {\n  console.log('Parse Fehler:', e.message);\n  return [];\n}\n\nif (!Array.isArray(parsed)) {\n  parsed = [parsed];\n}\n\n// Deep search helpers\nfunction findInObj(obj, keys) {\n  if (!obj || typeof obj !== 'object') return '';\n  for (const key of keys) {\n    if (obj[key] && typeof obj[key] === 'string') return obj[key];\n  }\n  for (const val of Object.values(obj)) {\n    if (typeof val === 'object') {\n      const found = findInObj(val, keys);\n      if (found) return found;\n    }\n    if (Array.isArray(val)) {\n      for (const item of val) {\n        const found = findInObj(item, keys);\n        if (found) return found;\n      }\n    }\n  }\n  return '';\n}\n\nfunction findEmail(obj) {\n  const str = JSON.stringify(obj);\n  const match = str.match(/\"([^\"]+@[^\"]+\\.[^\"]+)\"/);\n  return match ? match[1] : '';\n}\n\nfunction findPhones(obj) {\n  const str = JSON.stringify(obj);\n  const matches = [...str.matchAll(/\"(\\+?(?:49|0)[\\d\\s\\/()\\-]{6,20})\"/g)];\n  return matches.map(m => m[1].trim());\n}\n\nconst contacts = parsed.map(obj => {\n  const fullName = findInObj(obj, ['fullName', 'name', 'full_name']) ||\n    (Array.isArray(obj.references) ? obj.references[0] : '') || '';\n  const email = findInObj(obj, ['email', 'mail', 'e-mail']) || findEmail(obj);\n  const validEmail = email.includes('@') ? email : '';\n\n  const phones = findPhones(obj);\n  let mobilePhone = findInObj(obj, ['mobilePhone', 'mobile', 'mobil', 'handy']) || '';\n  let landlinePhone = findInObj(obj, ['landlinePhone', 'landline', 'phone', 'tel', 'telefon', 'festnetz', 'büro', 'office']) || '';\n\n  if (!mobilePhone && !landlinePhone) {\n    for (const p of phones) {\n      if (isMobile(p) && !mobilePhone) mobilePhone = p;\n      else if (!isMobile(p) && !landlinePhone) landlinePhone = p;\n    }\n  }\n\n  return { fullName, mobilePhone, landlinePhone, email: validEmail };\n});\n\nreturn contacts.map(contact => ({\n  json: {\n    line: `${contact.fullName || ''}\t${contact.mobilePhone || ''}\t${contact.landlinePhone || ''}\t${contact.email || ''}`\n  }\n}));"
+        "jsCode": "const items = $input.all();\n\nlet parsed = [];\ntry {\n  const raw = items[0].json;\n  // /api/generate returns { response: \"...\" } where response is the JSON string\n  // format:json may also return fields directly in raw\n  let jsonString = raw.response || raw.text || raw.content || '';\n\n  if (jsonString) {\n    jsonString = jsonString\n      .replace(/```(?:json)?\\s*/g, '')\n      .replace(/\\s*```/g, '')\n      .trim();\n    parsed = JSON.parse(jsonString);\n  } else if (raw.fullName || raw.name) {\n    parsed = [raw];\n  } else {\n    const str = JSON.stringify(raw);\n    parsed = JSON.parse(str);\n  }\n} catch(e) {\n  console.log('Parse Fehler:', e.message);\n  return [];\n}\n\nif (!Array.isArray(parsed)) {\n  parsed = [parsed];\n}\n\n// Deep search helpers\nfunction findInObj(obj, keys) {\n  if (!obj || typeof obj !== 'object') return '';\n  for (const key of keys) {\n    if (obj[key] && typeof obj[key] === 'string') return obj[key];\n  }\n  for (const val of Object.values(obj)) {\n    if (typeof val === 'object') {\n      const found = findInObj(val, keys);\n      if (found) return found;\n    }\n    if (Array.isArray(val)) {\n      for (const item of val) {\n        const found = findInObj(item, keys);\n        if (found) return found;\n      }\n    }\n  }\n  return '';\n}\n\nfunction findEmail(obj) {\n  const str = JSON.stringify(obj);\n  const match = str.match(/\"([^\"]+@[^\"]+\\.[^\"]+)\"/);\n  return match ? match[1] : '';\n}\n\nfunction findPhones(obj) {\n  const str = JSON.stringify(obj);\n  const matches = [...str.matchAll(/\"(\\+?(?:49|0)[\\d\\s\\/()\\\\-]{6,20})\"/g)];\n  return matches.map(m => m[1].trim());\n}\n\nconst contacts = parsed.map(obj => {\n  const fullName = findInObj(obj, ['fullName', 'name', 'full_name']) ||\n    (Array.isArray(obj.references) ? obj.references[0] : '') || '';\n  const email = findInObj(obj, ['email', 'mail', 'e-mail']) || findEmail(obj);\n  const validEmail = email.includes('@') ? email : '';\n\n  const phones = findPhones(obj);\n  let mobilePhone = findInObj(obj, ['mobilePhone', 'mobile', 'mobil', 'handy']) || '';\n  let landlinePhone = findInObj(obj, ['landlinePhone', 'landline', 'phone', 'tel', 'telefon', 'festnetz', 'büro', 'office']) || '';\n\n  if (!mobilePhone && !landlinePhone) {\n    for (const p of phones) {\n      if (isMobile(p) && !mobilePhone) mobilePhone = p;\n      else if (!isMobile(p) && !landlinePhone) landlinePhone = p;\n    }\n  }\n\n  return { fullName, mobilePhone, landlinePhone, email: validEmail };\n});\n\n// Validate: phone or email must appear literally in the original email text\nconst sourceText = $('Prepare Ollama Request').first().json.sourceText || '';\nconst sourceDigits = sourceText.replace(/\\D/g, '');\nconst sourceLower = sourceText.toLowerCase();\n\nfunction phoneInSource(phone) {\n  if (!phone) return false;\n  const digits = phone.replace(/\\D/g, '');\n  if (digits.length < 8) return false;\n  return sourceDigits.includes(digits.slice(-10)) || sourceDigits.includes(digits.slice(-8));\n}\n\nfunction emailInSource(email) {\n  if (!email || !email.includes('@')) return false;\n  return sourceLower.includes(email.toLowerCase());\n}\n\nconst verified = contacts.filter(c =>\n  phoneInSource(c.mobilePhone) || phoneInSource(c.landlinePhone) || emailInSource(c.email)\n);\n\nreturn verified.map(contact => ({\n  json: {\n    line: `${contact.fullName || ''}\\t${contact.mobilePhone || ''}\\t${contact.landlinePhone || ''}\\t${contact.email || ''}`\n  }\n}));"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        22432,
-        12464
+        2688,
+        416
       ],
-      "id": "cfe54c9a-aefa-4a0f-a7ed-6eee6a7d6b2d",
+      "id": "4fcb93af-f82f-45cc-8961-a2b9e7ef4fe0",
       "name": "Convert to valid JSON"
     },
     {
@@ -66,10 +50,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        22592,
-        12464
+        2848,
+        416
       ],
-      "id": "7d9d6e69-483b-45ce-af5e-c0c8d2505f84",
+      "id": "7bb14e1e-4580-4b8e-bc97-3327956e4762",
       "name": "Convert to plain text"
     },
     {
@@ -97,15 +81,15 @@
       "type": "n8n-nodes-base.github",
       "typeVersion": 1.1,
       "position": [
-        22736,
-        12576
+        2992,
+        528
       ],
-      "id": "86e662ee-2ba5-4e88-a21c-1570c4ec64f6",
+      "id": "9922fd8e-93db-4fbf-98cf-b966a9cd4223",
       "name": "Get contacts file",
       "webhookId": "8710dd3b-d4f5-430f-81e1-28a4f59f21ea",
       "credentials": {
         "githubApi": {
-          "id": "t30398bqsZwBSgK4",
+          "id": "vYYt4BfEBLepjmcl",
           "name": "GitHub account"
         }
       }
@@ -117,10 +101,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        22864,
-        12576
+        3120,
+        528
       ],
-      "id": "161939ab-0734-4be1-b899-b5aacd20e7c8",
+      "id": "c959b192-871b-44b3-979b-38c42361f01b",
       "name": "Decode contacts file content"
     },
     {
@@ -132,10 +116,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        23008,
-        12480
+        3264,
+        432
       ],
-      "id": "9426d424-b5a7-4823-9a84-f650465d05b5",
+      "id": "b21aca91-3b37-40f7-80db-7f445e1e3584",
       "name": "Merge",
       "alwaysOutputData": false
     },
@@ -146,10 +130,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        23168,
-        12480
+        3424,
+        432
       ],
-      "id": "7fb443f9-8480-4d7f-9d33-215e70c6dfd5",
+      "id": "6ba9488a-34fd-4ef1-ba4a-d5d38491c450",
       "name": "Append new contacts"
     },
     {
@@ -177,15 +161,15 @@
       "type": "n8n-nodes-base.github",
       "typeVersion": 1.1,
       "position": [
-        23360,
-        12480
+        3616,
+        432
       ],
-      "id": "656d79a3-0bf6-48ba-932d-86c072191682",
+      "id": "e7ea5dee-d915-4093-bd5d-63293a3bb10a",
       "name": "Edit a file",
       "webhookId": "df28fb41-3b05-46b5-b372-32ede577f32c",
       "credentials": {
         "githubApi": {
-          "id": "t30398bqsZwBSgK4",
+          "id": "vYYt4BfEBLepjmcl",
           "name": "GitHub account"
         }
       }
@@ -197,36 +181,66 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        21952,
-        12464
+        2032,
+        416
       ],
-      "id": "9877bcbb-eae5-43fc-96ec-875793193df9",
+      "id": "8cbd6808-e266-468d-9688-efdb17057cef",
       "name": "Extract plain text from HTML"
     },
     {
-      "parameters": {
-        "model": "qwen2.5-coder:3b-instruct-q4_K_M",
-        "options": {
-          "format": "json"
-        }
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
-      "typeVersion": 1,
+      "id": "fix-encoding-001",
+      "name": "Fix Encoding",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        22128,
-        12656
+        2120,
+        416
       ],
-      "id": "67315272-b944-4595-9b46-7fd8bf9288c7",
-      "name": "Ollama Chat Model1",
-      "credentials": {
-        "ollamaApi": {
-          "id": "WiyEmyfkJiIcRG6d",
-          "name": "Ollama account"
-        }
+      "parameters": {
+        "jsCode": "const items = $input.all();\nreturn items.map(item => {\n  const fix = str => {\n    if (!str) return str;\n    try { return Buffer.from(str, 'latin1').toString('utf8'); } catch(e) { return str; }\n  };\n  return {\n    json: {\n      ...item.json,\n      textPlain: fix(item.json.textPlain),\n      textHtml: fix(item.json.textHtml),\n    }\n  };\n});"
+      }
+    },
+    {
+      "id": "ollama-http-request",
+      "name": "Ollama Extract Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2384,
+        416
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.20.0.1:11434/api/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "prepare-ollama-request",
+      "name": "Prepare Ollama Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        416
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first();\nlet text = item.json.textPlain || '';\nconst sourceText = text;\n\ntext = text.substring(0, 3000).trim();\n\nconst prompt = `Extract the recruiter contact from the email signature. Return ONLY a JSON array in exactly this format:\n[{\"fullName\": \"FIRSTNAME LASTNAME\", \"mobilePhone\": \"+49MOBILE\", \"landlinePhone\": \"+49LANDLINE\", \"email\": \"name@domain.com\"}]\n\nRules:\n- fullName: full name of the sender (NOT Atanas Alexandrov)\n- mobilePhone: mobile number, empty string if none\n- landlinePhone: office or landline number, empty string if none. Do NOT use Fax numbers.\n- email: must contain @, no website URLs, empty string if none\n- Return [] if no valid person contact with phone number found\n\nEmail:\n${text}`;\n\nreturn [{ json: { model: 'qwen2.5-coder:3b-instruct-q4_K_M', prompt, format: 'json', stream: false, sourceText } }];"
       }
     }
   ],
-  "pinData": {},
   "connections": {
     "Email Trigger (IMAP)": {
       "main": [
@@ -243,18 +257,7 @@
       "main": [
         [
           {
-            "node": "Basic LLM Chain",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Basic LLM Chain": {
-      "main": [
-        [
-          {
-            "node": "Convert to valid JSON",
+            "node": "Fix Encoding",
             "type": "main",
             "index": 0
           }
@@ -342,18 +345,435 @@
           }
         ]
       ]
+    },
+    "Fix Encoding": {
+      "main": [
+        [
+          {
+            "node": "Prepare Ollama Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Extract Contacts": {
+      "main": [
+        [
+          {
+            "node": "Convert to valid JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Ollama Request": {
+      "main": [
+        [
+          {
+            "node": "Ollama Extract Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "c2d60da2-060d-45fb-b9b7-dffbc9312ccd",
+  "staticData": null,
   "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "64094ca7a5a36732f288d31f7506b6a12e6d968330cffbf858779324b78b092f"
+    "templateCredsSetupCompleted": true
   },
-  "id": "0Vt5KApALCwoBc0x",
-  "tags": []
+  "pinData": {},
+  "versionId": "b0a1dcaa-5031-4b4b-943d-5a7a6d99d54e",
+  "activeVersionId": "b0a1dcaa-5031-4b4b-943d-5a7a6d99d54e",
+  "versionCounter": 68,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-04-27T08:53:20.832Z",
+      "createdAt": "2026-04-27T08:53:20.832Z",
+      "role": "workflow:owner",
+      "workflowId": "u4ZfAmZulzl24Uk4",
+      "projectId": "GE0Uom1puraPlr5p",
+      "project": {
+        "updatedAt": "2026-02-17T15:57:49.576Z",
+        "createdAt": "2026-02-17T15:55:42.583Z",
+        "id": "GE0Uom1puraPlr5p",
+        "name": "None None <sirakov@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "1e2381f2-98e2-44b9-a148-c2f964a31904"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-04-27T12:18:20.000Z",
+    "createdAt": "2026-04-27T12:13:19.212Z",
+    "versionId": "b0a1dcaa-5031-4b4b-943d-5a7a6d99d54e",
+    "workflowId": "u4ZfAmZulzl24Uk4",
+    "nodes": [
+      {
+        "parameters": {
+          "mailbox": "todo",
+          "options": {
+            "customEmailConfig": "[\"UNSEEN\"]",
+            "trackLastMessageId": true
+          }
+        },
+        "type": "n8n-nodes-base.emailReadImap",
+        "typeVersion": 2.1,
+        "position": [
+          1856,
+          416
+        ],
+        "id": "f1247f7a-cf55-4fb1-9db4-74df584bc6b1",
+        "name": "Email Trigger (IMAP)",
+        "credentials": {
+          "imap": {
+            "id": "35ahG1FZxlFOLE3C",
+            "name": "IMAP account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Extract the recruiter contact from the email signature. Return ONLY a JSON array in exactly this format:\n[{\"fullName\": \"FIRSTNAME LASTNAME\", \"mobilePhone\": \"+49MOBILE\", \"landlinePhone\": \"+49LANDLINE\", \"email\": \"name@domain.com\"}]\n\nRules:\n- fullName: full name of the sender (NOT Atanas Alexandrov)\n- mobilePhone: mobile number, empty string if none\n- landlinePhone: office or landline number, empty string if none. Do NOT use Fax numbers.\n- email: must contain @, no website URLs, empty string if none\n- Return [] if no valid person contact with phone number found\n\nEmail:\n{{ $json.textPlain }}",
+          "messages": {
+            "messageValues": [
+              {
+                "message": "="
+              }
+            ]
+          },
+          "batching": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.9,
+        "position": [
+          2208,
+          416
+        ],
+        "id": "65b994af-5d11-4725-9c11-a29a27177844",
+        "name": "Basic LLM Chain"
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\n\nlet parsed = [];\ntry {\n  const raw = items[0].json;\n  let jsonString = raw.text || raw.content || '';\n\n  if (jsonString) {\n    jsonString = jsonString\n      .replace(/```(?:json)?\\s*/g, '')\n      .replace(/\\s*```/g, '')\n      .trim();\n    parsed = JSON.parse(jsonString);\n  } else if (raw.fullName || raw.name) {\n    // format:json outputs fields directly instead of as a string\n    parsed = [raw];\n  } else {\n    // Try parsing the entire output as JSON string\n    const str = JSON.stringify(raw);\n    parsed = JSON.parse(str);\n  }\n} catch(e) {\n  console.log('Parse Fehler:', e.message);\n  return [];\n}\n\nif (!Array.isArray(parsed)) {\n  parsed = [parsed];\n}\n\n// Deep search helpers\nfunction findInObj(obj, keys) {\n  if (!obj || typeof obj !== 'object') return '';\n  for (const key of keys) {\n    if (obj[key] && typeof obj[key] === 'string') return obj[key];\n  }\n  for (const val of Object.values(obj)) {\n    if (typeof val === 'object') {\n      const found = findInObj(val, keys);\n      if (found) return found;\n    }\n    if (Array.isArray(val)) {\n      for (const item of val) {\n        const found = findInObj(item, keys);\n        if (found) return found;\n      }\n    }\n  }\n  return '';\n}\n\nfunction findEmail(obj) {\n  const str = JSON.stringify(obj);\n  const match = str.match(/\"([^\"]+@[^\"]+\\.[^\"]+)\"/);\n  return match ? match[1] : '';\n}\n\nfunction findPhones(obj) {\n  const str = JSON.stringify(obj);\n  const matches = [...str.matchAll(/\"(\\+?(?:49|0)[\\d\\s\\/()\\-]{6,20})\"/g)];\n  return matches.map(m => m[1].trim());\n}\n\nconst contacts = parsed.map(obj => {\n  const fullName = findInObj(obj, ['fullName', 'name', 'full_name']) ||\n    (Array.isArray(obj.references) ? obj.references[0] : '') || '';\n  const email = findInObj(obj, ['email', 'mail', 'e-mail']) || findEmail(obj);\n  const validEmail = email.includes('@') ? email : '';\n\n  const phones = findPhones(obj);\n  let mobilePhone = findInObj(obj, ['mobilePhone', 'mobile', 'mobil', 'handy']) || '';\n  let landlinePhone = findInObj(obj, ['landlinePhone', 'landline', 'phone', 'tel', 'telefon', 'festnetz', 'büro', 'office']) || '';\n\n  if (!mobilePhone && !landlinePhone) {\n    for (const p of phones) {\n      if (isMobile(p) && !mobilePhone) mobilePhone = p;\n      else if (!isMobile(p) && !landlinePhone) landlinePhone = p;\n    }\n  }\n\n  return { fullName, mobilePhone, landlinePhone, email: validEmail };\n});\n\nreturn contacts.map(contact => ({\n  json: {\n    line: `${contact.fullName || ''}\t${contact.mobilePhone || ''}\t${contact.landlinePhone || ''}\t${contact.email || ''}`\n  }\n}));"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2512,
+          416
+        ],
+        "id": "4fcb93af-f82f-45cc-8961-a2b9e7ef4fe0",
+        "name": "Convert to valid JSON"
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\nconst plainText = items.map(item => item.json.line).join('\\n');\n\nreturn [{\n  json: {\n    text: plainText\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2672,
+          416
+        ],
+        "id": "7bb14e1e-4580-4b8e-bc97-3327956e4762",
+        "name": "Convert to plain text"
+      },
+      {
+        "parameters": {
+          "resource": "file",
+          "operation": "get",
+          "owner": {
+            "__rl": true,
+            "value": "cupakob",
+            "mode": "list",
+            "cachedResultName": "cupakob",
+            "cachedResultUrl": "https://github.com/cupakob"
+          },
+          "repository": {
+            "__rl": true,
+            "value": "recruiter-contacts",
+            "mode": "name"
+          },
+          "filePath": "contacts.md",
+          "asBinaryProperty": false,
+          "additionalParameters": {
+            "reference": "main"
+          }
+        },
+        "type": "n8n-nodes-base.github",
+        "typeVersion": 1.1,
+        "position": [
+          2816,
+          528
+        ],
+        "id": "9922fd8e-93db-4fbf-98cf-b966a9cd4223",
+        "name": "Get contacts file",
+        "webhookId": "8710dd3b-d4f5-430f-81e1-28a4f59f21ea",
+        "credentials": {
+          "githubApi": {
+            "id": "vYYt4BfEBLepjmcl",
+            "name": "GitHub account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const decodedText = Buffer.from($input.first().json.content, 'base64').toString('utf8');\n\nreturn [{ json: { existingContent: decodedText } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2944,
+          528
+        ],
+        "id": "c959b192-871b-44b3-979b-38c42361f01b",
+        "name": "Decode contacts file content"
+      },
+      {
+        "parameters": {
+          "mode": "combine",
+          "combineBy": "combineByPosition",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          3088,
+          432
+        ],
+        "id": "b21aca91-3b37-40f7-80db-7f445e1e3584",
+        "name": "Merge",
+        "alwaysOutputData": false
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\nconst existingContent = items[0].json.existingContent || '';\nconst newContactsText = items[0].json.text || '';\n\nfunction normalizePhone(phone) {\n  if (!phone) return '';\n  return phone.replace(/[\\s()\\-\\/]/g, '');\n}\n\nfunction padRight(str, len) {\n  if (!str) str = '';\n  return str.length >= len ? str : str + ' '.repeat(len - str.length);\n}\n\n// Detect column widths from the separator row (e.g. |---|---|)\nlet colWidths = [30, 17, 18, 37];\nconst sepLine = existingContent.split('\\n').find(l => /^\\|[-|]+\\|$/.test(l.trim()));\nif (sepLine) {\n  const segments = sepLine.split('|').filter((_, i, arr) => i > 0 && i < arr.length - 1);\n  if (segments.length >= 4) {\n    colWidths = segments.map(s => Math.max(s.length - 2, 1));\n  }\n}\n\nfunction formatRow(c) {\n  return `| ${padRight(c.fullName, colWidths[0])} | ${padRight(c.mobilePhone, colWidths[1])} | ${padRight(c.landlinePhone, colWidths[2])} | ${padRight(c.email, colWidths[3])} |`;\n}\n\nconst newLines = newContactsText.split('\\n').filter(l => l.trim());\nconst newContacts = newLines.map(line => {\n  const parts = line.split('\t').map(p => p.trim());\n  return {\n    fullName: parts[0] || '',\n    mobilePhone: normalizePhone(parts[1]),\n    landlinePhone: normalizePhone(parts[2]),\n    email: parts[3] || ''\n  };\n});\n\nconst companyKeywords = ['team', 'gmbh', 'recruiting', 'service', 'inc', 'ltd', ' ag', 'ug ', ' kg', 'ohg', 'gbr'];\n\nfunction isCompanyContact(name) {\n  const lower = name.toLowerCase();\n  return companyKeywords.some(kw => lower.includes(kw));\n}\n\nfunction isMobile(phone) {\n  const n = phone.replace(/[\\s()\\-\\/]/g, '');\n  return /^(\\+49|0049)(15|16|17)/.test(n) || /^0(15|16|17)/.test(n);\n}\n\nconst filtered = newContacts.filter(c => {\n  if (!c.fullName) return false;\n  const nameLower = c.fullName.toLowerCase();\n  if (nameLower.includes('alexandrov') || nameLower === 'atanas alexandrov') return false;\n  if (!c.mobilePhone && !c.landlinePhone) return false;\n  if (isCompanyContact(c.fullName)) return false;\n  return true;\n}).map(c => {\n  // Re-classify phones in case model assigned them incorrectly\n  let { mobilePhone, landlinePhone } = c;\n  if (mobilePhone && !isMobile(mobilePhone)) {\n    if (!landlinePhone) landlinePhone = mobilePhone;\n    mobilePhone = '';\n  }\n  if (landlinePhone && isMobile(landlinePhone)) {\n    if (!mobilePhone) mobilePhone = landlinePhone;\n    landlinePhone = '';\n  }\n  return { ...c, mobilePhone, landlinePhone };\n});\n\n// Parse existing table rows\nfunction parseTableRow(line) {\n  if (!line.startsWith('|') || line.startsWith('|---') || line.startsWith('| Name') || line.startsWith('| ---')) return null;\n  const cols = line.split('|').map(c => c.trim());\n  if (cols.length < 5) return null;\n  return { name: cols[1], mobile: cols[2], landline: cols[3], email: cols[4] };\n}\n\nlet lines = existingContent.split('\\n');\nlet changed = false;\n\nconst toAppend = [];\n\nfor (const c of filtered) {\n  const nameLower = c.fullName.toLowerCase();\n  let found = false;\n\n  for (let i = 0; i < lines.length; i++) {\n    const row = parseTableRow(lines[i]);\n    if (row && row.name.toLowerCase() === nameLower) {\n      found = true;\n      const mobileChanged = c.mobilePhone && row.mobile !== c.mobilePhone;\n      const landlineChanged = c.landlinePhone && row.landline !== c.landlinePhone;\n      const emailChanged = c.email && row.email !== c.email;\n      if (mobileChanged || landlineChanged || emailChanged) {\n        lines[i] = formatRow({\n          fullName: row.name,\n          mobilePhone: c.mobilePhone || row.mobile,\n          landlinePhone: c.landlinePhone || row.landline,\n          email: c.email || row.email\n        });\n        changed = true;\n      }\n      break;\n    }\n  }\n\n  if (!found) {\n    toAppend.push(c);\n  }\n}\n\nlet result = lines.join('\\n');\n\nif (toAppend.length > 0) {\n  const newRows = toAppend.map(c => formatRow(c));\n  result = result.trimEnd() + '\\n' + newRows.join('\\n');\n}\n\nif (!changed && toAppend.length === 0) {\n  return [{ json: { text: existingContent.trimEnd() + '\\n' } }];\n}\n\nreturn [{ json: { text: result.trimEnd() + '\\n' } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3248,
+          432
+        ],
+        "id": "6ba9488a-34fd-4ef1-ba4a-d5d38491c450",
+        "name": "Append new contacts"
+      },
+      {
+        "parameters": {
+          "resource": "file",
+          "operation": "edit",
+          "owner": {
+            "__rl": true,
+            "value": "cupakob",
+            "mode": "list",
+            "cachedResultName": "cupakob",
+            "cachedResultUrl": "https://github.com/cupakob"
+          },
+          "repository": {
+            "__rl": true,
+            "value": "recruiter-contacts",
+            "mode": "list",
+            "cachedResultName": "recruiter-contacts",
+            "cachedResultUrl": "https://github.com/cupakob/recruiter-contacts"
+          },
+          "filePath": "contacts.md",
+          "fileContent": "={{ $json.text }}",
+          "commitMessage": "Add new contacts from email via n8n"
+        },
+        "type": "n8n-nodes-base.github",
+        "typeVersion": 1.1,
+        "position": [
+          3440,
+          432
+        ],
+        "id": "e7ea5dee-d915-4093-bd5d-63293a3bb10a",
+        "name": "Edit a file",
+        "webhookId": "df28fb41-3b05-46b5-b372-32ede577f32c",
+        "credentials": {
+          "githubApi": {
+            "id": "vYYt4BfEBLepjmcl",
+            "name": "GitHub account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nlet text = item.textPlain || '';\n\nif (!text && item.textHtml) {\n  text = item.textHtml\n    .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n    .replace(/<br\\s*\\/?>/gi, '\\n')\n    .replace(/<\\/p>/gi, '\\n')\n    .replace(/<\\/div>/gi, '\\n')\n    .replace(/<\\/li>/gi, '\\n')\n    .replace(/<[^>]+>/g, '')\n    .replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/&nbsp;/g, ' ')\n    .replace(/&#[0-9]+;/g, '')\n    .replace(/[ \\t]{2,}/g, ' ')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n}\n\nreturn [{ json: { ...item, textPlain: text } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2032,
+          416
+        ],
+        "id": "8cbd6808-e266-468d-9688-efdb17057cef",
+        "name": "Extract plain text from HTML"
+      },
+      {
+        "parameters": {
+          "model": "qwen2.5-coder:3b-instruct-q4_K_M",
+          "options": {
+            "format": "json"
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+        "typeVersion": 1,
+        "position": [
+          2208,
+          608
+        ],
+        "id": "51881eb0-fbfa-48a2-bf2e-d3f67392ba2e",
+        "name": "Ollama Chat Model1",
+        "credentials": {
+          "ollamaApi": {
+            "id": "tTU2Mx7vlO2JNbdr",
+            "name": "Ollama account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Email Trigger (IMAP)": {
+        "main": [
+          [
+            {
+              "node": "Extract plain text from HTML",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract plain text from HTML": {
+        "main": [
+          [
+            {
+              "node": "Basic LLM Chain",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Basic LLM Chain": {
+        "main": [
+          [
+            {
+              "node": "Convert to valid JSON",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Convert to valid JSON": {
+        "main": [
+          [
+            {
+              "node": "Convert to plain text",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Convert to plain text": {
+        "main": [
+          [
+            {
+              "node": "Get contacts file",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get contacts file": {
+        "main": [
+          [
+            {
+              "node": "Decode contacts file content",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Decode contacts file content": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "node": "Append new contacts",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Append new contacts": {
+        "main": [
+          [
+            {
+              "node": "Edit a file",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ollama Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Basic LLM Chain",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "None None",
+    "name": "Version b0a1dcaa",
+    "description": "",
+    "autosaved": true,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-04-27T12:18:20.625Z",
+        "id": 13,
+        "workflowId": "u4ZfAmZulzl24Uk4",
+        "versionId": "b0a1dcaa-5031-4b4b-943d-5a7a6d99d54e",
+        "event": "activated",
+        "userId": "1e2381f2-98e2-44b9-a148-c2f964a31904"
+      }
+    ]
+  }
 }
